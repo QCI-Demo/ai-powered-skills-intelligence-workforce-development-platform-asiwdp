@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Recommendation Engine Service
+  version: 1.0.0
+  description: |
+    AI recommendation APIs. Protected by OAuth2/JWT tenant-scoped RBAC.
+    Required scopes documented per operation.
+servers:
+  - url: /api/v1
+tags:
+  - name: Recommendations
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /recommendations:
+    get:
+      tags: [Recommendations]
+      summary: List recommendations for the caller
+      description: Requires `recommendations:read`.
+      security:
+        - OAuth2Bearer: [recommendations:read]
+      responses:
+        "200":
+          description: Recommendation list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /recommendations/generate:
+    post:
+      tags: [Recommendations]
+      summary: Generate personalized recommendations
+      description: Requires `recommendations:generate`.
+      security:
+        - OAuth2Bearer: [recommendations:generate]
+      responses:
+        "202":
+          description: Generation accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /recommendations/admin/reindex:
+    post:
+      tags: [Recommendations]
+      summary: Rebuild recommendation indexes
+      description: Requires `recommendations:admin` (tenant_admin or platform_admin).
+      security:
+        - OAuth2Bearer: [recommendations:admin]
+      responses:
+        "202":
+          description: Reindex accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token with tenant_id, roles, and scopes. See
+        docs/design/jwt-claim-schema-and-rbac.md.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            recommendations:read: Read recommendations
+            recommendations:generate: Generate recommendations
+            recommendations:admin: Administer recommendation engine
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: RBAC denial for tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []
