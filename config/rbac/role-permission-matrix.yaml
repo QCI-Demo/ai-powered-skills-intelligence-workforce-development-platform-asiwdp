@@ -1,0 +1,207 @@
+# ASIWDP tenant-scoped RBAC role → permission matrix
+# Schema version: 1.0.0
+# Source of truth for asiwdp-auth middleware effective-permission expansion.
+#
+# Permission keys: resource_type:action
+# Roles are tenant-scoped unless marked platform_scoped: true
+
+version: "1.0.0"
+description: >
+  Maps platform roles to service-level permissions for the AI-Powered Skills
+  Intelligence & Workforce Development Platform (ASIWDP).
+
+permission_catalog:
+  - skills:read
+  - skills:write
+  - skills:delete
+  - skills:admin
+  - competencies:read
+  - competencies:write
+  - competencies:delete
+  - competencies:admin
+  - recommendations:read
+  - recommendations:generate
+  - recommendations:admin
+  - learning_paths:read
+  - learning_paths:write
+  - learning_paths:assign
+  - learning_paths:delete
+  - learning_paths:admin
+  - progress:read
+  - progress:write
+  - progress:admin
+  - analytics:read
+  - analytics:export
+  - analytics:admin
+  - tenants:read
+  - tenants:write
+  - tenants:delete
+  - tenants:admin
+  - users:read
+  - users:write
+  - users:delete
+  - users:admin
+  - organizations:read
+  - organizations:write
+  - organizations:delete
+  - organizations:admin
+  - roles:read
+  - roles:write
+  - roles:admin
+  - consent:read
+  - consent:write
+  - consent:admin
+  - usage:read
+  - usage:write
+  - usage:admin
+
+roles:
+  platform_admin:
+    description: Cross-tenant platform operator (break-glass).
+    platform_scoped: true
+    permissions:
+      - "*"
+
+  tenant_admin:
+    description: Full administration within a single tenant.
+    platform_scoped: false
+    permissions:
+      - skills:admin
+      - competencies:admin
+      - recommendations:admin
+      - learning_paths:admin
+      - progress:admin
+      - analytics:admin
+      - tenants:read
+      - tenants:write
+      - users:admin
+      - organizations:admin
+      - roles:admin
+      - consent:admin
+      - usage:admin
+
+  org_admin:
+    description: Organization administrator within a tenant.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:read
+      - learning_paths:read
+      - learning_paths:assign
+      - progress:read
+      - analytics:read
+      - users:read
+      - users:write
+      - organizations:read
+      - organizations:write
+      - consent:read
+      - usage:read
+
+  skills_manager:
+    description: Manages skills framework and competencies.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - skills:write
+      - skills:delete
+      - competencies:read
+      - competencies:write
+      - competencies:delete
+      - learning_paths:read
+      - analytics:read
+
+  learning_designer:
+    description: Designs and maintains learning paths.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:read
+      - recommendations:generate
+      - learning_paths:read
+      - learning_paths:write
+      - learning_paths:assign
+      - learning_paths:delete
+      - progress:read
+
+  analyst:
+    description: Workforce analytics consumer (read/export).
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:read
+      - learning_paths:read
+      - progress:read
+      - analytics:read
+      - analytics:export
+      - usage:read
+
+  manager:
+    description: Team lead with readiness and progress visibility.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:read
+      - learning_paths:read
+      - learning_paths:assign
+      - progress:read
+      - analytics:read
+      - users:read
+
+  learner:
+    description: End-user learner principal.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:read
+      - recommendations:generate
+      - learning_paths:read
+      - progress:read
+      - progress:write
+      - consent:read
+      - consent:write
+
+  service_account:
+    description: Machine-to-machine integration principal.
+    platform_scoped: false
+    permissions:
+      - skills:read
+      - competencies:read
+      - recommendations:generate
+      - learning_paths:read
+      - progress:read
+      - progress:write
+      - usage:write
+      - consent:read
+
+# Default required scopes documented for OpenAPI / route guards
+service_endpoint_defaults:
+  skills-framework-service:
+    read: [skills:read]
+    write: [skills:write]
+    admin: [skills:admin]
+  recommendation-engine-service:
+    read: [recommendations:read]
+    generate: [recommendations:generate]
+    admin: [recommendations:admin]
+  learning-path-service:
+    read: [learning_paths:read]
+    write: [learning_paths:write]
+    assign: [learning_paths:assign]
+    admin: [learning_paths:admin]
+  progress-tracking-service:
+    read: [progress:read]
+    write: [progress:write]
+    admin: [progress:admin]
+  analytics-insights-service:
+    read: [analytics:read]
+    export: [analytics:export]
+    admin: [analytics:admin]
+  tenant-admin-service:
+    read: [tenants:read, users:read, organizations:read]
+    write: [tenants:write, users:write, organizations:write]
+    admin: [tenants:admin, users:admin, organizations:admin, roles:admin]
