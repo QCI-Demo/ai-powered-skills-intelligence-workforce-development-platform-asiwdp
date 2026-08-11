@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Progress Tracking Service
+  version: 1.0.0
+  description: |
+    Learning progress tracking APIs. Secured with OAuth2 Bearer JWT and
+    tenant-scoped RBAC (`progress:read` / `progress:write` / `progress:admin`).
+servers:
+  - url: /api/v1
+tags:
+  - name: Progress
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /progress:
+    get:
+      tags: [Progress]
+      summary: List progress records for the tenant (or self)
+      description: Requires `progress:read`.
+      security:
+        - OAuth2Bearer: [progress:read]
+      responses:
+        "200":
+          description: Progress list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Progress]
+      summary: Record learning progress
+      description: Requires `progress:write` (learners may update own progress).
+      security:
+        - OAuth2Bearer: [progress:write]
+      responses:
+        "201":
+          description: Progress recorded
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /progress/{progressId}:
+    get:
+      tags: [Progress]
+      summary: Get progress by ID
+      security:
+        - OAuth2Bearer: [progress:read]
+      parameters:
+        - name: progressId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Progress detail
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /progress/admin/export:
+    post:
+      tags: [Progress]
+      summary: Export tenant progress dataset
+      description: Requires `progress:admin`.
+      security:
+        - OAuth2Bearer: [progress:admin]
+      responses:
+        "202":
+          description: Export accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token; tenant_id required. See design doc for claims.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            progress:read: Read progress
+            progress:write: Write progress
+            progress:admin: Administer progress data
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: RBAC denial
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []
