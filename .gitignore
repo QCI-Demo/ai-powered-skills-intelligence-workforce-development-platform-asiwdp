@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 vendor/
+.venv/
+venv/
 
 # Env
 .env
@@ -11,3 +13,10 @@ dist/
 build/
 .idea/
 *.log
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+*.pyc
