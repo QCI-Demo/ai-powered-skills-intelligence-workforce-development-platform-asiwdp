@@ -36,4 +36,17 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="V3-add-category-and-retire-support" author="asiwdp">
+        <sqlFile path="../sql/V3__add_category_and_retire_support.sql"
+                 relativeToChangelogFile="true"
+                 splitStatements="true"
+                 stripComments="false"/>
+        <rollback>
+            <sqlFile path="../undo/U3__drop_category_and_retire_support.sql"
+                     relativeToChangelogFile="true"
+                     splitStatements="true"
+                     stripComments="false"/>
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

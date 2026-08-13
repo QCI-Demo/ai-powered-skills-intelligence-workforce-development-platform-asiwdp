@@ -1,0 +1,158 @@
+"""Category CRUD controller with tenant + taxonomy version handling."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import HTTPException, status
+
+from asiwdp_skills_framework.deps import TenantContext
+from asiwdp_skills_framework.models import Category
+from asiwdp_skills_framework.repositories import AuditRepository, CategoryRepository
+from asiwdp_skills_framework.schemas.requests import CategoryCreate, CategoryUpdate
+from asiwdp_skills_framework.schemas.responses import (
+    CategoryResponse,
+    PaginatedCategories,
+)
+from asiwdp_skills_framework.validation import assert_valid_schema
+
+
+class CategoryController:
+    def __init__(self, repo: CategoryRepository, audit: AuditRepository) -> None:
+        self._repo = repo
+        self._audit = audit
+
+    def create(self, ctx: TenantContext, body: CategoryCreate) -> CategoryResponse:
+        assert_valid_schema(body.model_dump(mode="json"), "category_create")
+        if body.tenant_id and body.tenant_id != ctx.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": "tenant_mismatch", "message": "Cross-tenant write denied"},
+            )
+        version = body.version or ctx.version
+        category = Category(
+            tenant_id=ctx.tenant_id,
+            version=version,
+            code=body.code,
+            name=body.name,
+            description=body.description,
+            parent_category_id=body.parent_category_id,
+        )
+        try:
+            created = self._repo.create(category)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": "conflict", "message": str(exc)},
+            ) from exc
+        self._audit.write(
+            tenant_id=ctx.tenant_id,
+            version=created.version,
+            entity_type="category",
+            entity_id=created.id,
+            action="CREATE",
+            actor_id=ctx.actor_id,
+            change_blob=created.model_dump(mode="json"),
+        )
+        return CategoryResponse.model_validate(created)
+
+    def get(self, ctx: TenantContext, category_id: UUID) -> CategoryResponse:
+        category = self._repo.get(tenant_id=ctx.tenant_id, category_id=category_id)
+        if category is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "not_found", "message": "Category not found"},
+            )
+        return CategoryResponse.model_validate(category)
+
+    def update(
+        self, ctx: TenantContext, category_id: UUID, body: CategoryUpdate
+    ) -> CategoryResponse:
+        category = self._repo.get(tenant_id=ctx.tenant_id, category_id=category_id)
+        if category is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "not_found", "message": "Category not found"},
+            )
+        data = body.model_dump(exclude_unset=True)
+        for key, value in data.items():
+            setattr(category, key, value)
+        updated = self._repo.update(category)
+        self._audit.write(
+            tenant_id=ctx.tenant_id,
+            version=updated.version,
+            entity_type="category",
+            entity_id=updated.id,
+            action="UPDATE",
+            actor_id=ctx.actor_id,
+            change_blob=data,
+        )
+        return CategoryResponse.model_validate(updated)
+
+    def retire(self, ctx: TenantContext, category_id: UUID) -> CategoryResponse:
+        category = self._repo.get(tenant_id=ctx.tenant_id, category_id=category_id)
+        if category is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "not_found", "message": "Category not found"},
+            )
+        category.status = "deprecated"
+        updated = self._repo.update(category)
+        self._audit.write(
+            tenant_id=ctx.tenant_id,
+            version=updated.version,
+            entity_type="category",
+            entity_id=updated.id,
+            action="RETIRE",
+            actor_id=ctx.actor_id,
+            change_blob={"status": "deprecated"},
+        )
+        return CategoryResponse.model_validate(updated)
+
+    def list(
+        self,
+        ctx: TenantContext,
+        *,
+        version: int | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> PaginatedCategories:
+        items, total = self._repo.list(
+            tenant_id=ctx.tenant_id,
+            version=version if version is not None else ctx.version,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+        return PaginatedCategories(
+            items=[CategoryResponse.model_validate(i) for i in items],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    def search(
+        self,
+        ctx: TenantContext,
+        *,
+        q: str,
+        version: int | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> PaginatedCategories:
+        items, total = self._repo.list(
+            tenant_id=ctx.tenant_id,
+            version=version if version is not None else ctx.version,
+            status=status,
+            q=q,
+            limit=limit,
+            offset=offset,
+        )
+        return PaginatedCategories(
+            items=[CategoryResponse.model_validate(i) for i in items],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )

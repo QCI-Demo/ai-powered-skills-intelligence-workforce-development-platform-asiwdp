@@ -8,9 +8,10 @@ EXPECTED_TABLES: tuple[str, ...] = (
     "role",
     "competency_requirement",
     "audit_log",
+    "category",
 )
 
-# Index names created in V1__create_skill_taxonomy_schema.sql
+# Index names created in V1/V3 skill taxonomy migrations
 EXPECTED_INDEXES: tuple[str, ...] = (
     "idx_skill_tenant_id",
     "idx_skill_version",
@@ -27,6 +28,9 @@ EXPECTED_INDEXES: tuple[str, ...] = (
     "idx_audit_log_tenant_id",
     "idx_audit_log_version",
     "idx_audit_log_tenant_version",
+    "idx_category_tenant_id",
+    "idx_category_version",
+    "idx_category_tenant_version",
 )
 
 DEMO_TENANT_ID = "22222222-2222-2222-2222-222222222222"

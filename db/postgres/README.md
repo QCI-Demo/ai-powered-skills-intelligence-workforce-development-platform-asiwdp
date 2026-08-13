@@ -11,6 +11,8 @@ taxonomy.
 | U1 | `undo/U1__drop_skill_taxonomy_schema.sql` | Drop schema (down) |
 | V2 | `sql/V2__seed_demo_tenant_taxonomy.sql` | Idempotent demo-tenant seed |
 | U2 | `undo/U2__unseed_demo_tenant_taxonomy.sql` | Remove demo seed (down) |
+| V3 | `sql/V3__add_category_and_retire_support.sql` | Category table + retire/audit |
+| U3 | `undo/U3__drop_category_and_retire_support.sql` | Drop category / retire (down) |
 | R | `sql/R__seed_tenant_taxonomy_procedure.sql` | Repeatable seed helper function |
 
 ## Migrate
