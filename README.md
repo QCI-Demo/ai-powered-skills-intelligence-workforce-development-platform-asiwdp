@@ -18,6 +18,27 @@ framework.
 | Data-access layer | [`libs/skills-persistence/`](libs/skills-persistence/) |
 | Migration test script | [`scripts/test_postgres_migration.sh`](scripts/test_postgres_migration.sh) |
 
+## Versioned CRUD & Import/Export Pipelines
+
+Story `69c7aeba-9db5-4b83-89ec-9d49d17c41ff` delivers RESTful, version-aware
+CRUD for skills, categories, and proficiency levels, plus bulk CSV/JSON import
+with row-level validation reports and streaming taxonomy export.
+
+| Artifact | Path |
+|----------|------|
+| Skills Framework service | [`services/skills-framework/`](services/skills-framework/) |
+| OpenAPI (skills) | [`openapi/skills-framework-service.yaml`](openapi/skills-framework-service.yaml) |
+| OpenAPI lint & portal publish | [`scripts/validate_and_publish_openapi.sh`](scripts/validate_and_publish_openapi.sh) |
+| Category + retire migration | [`db/postgres/sql/V3__add_category_and_retire_support.sql`](db/postgres/sql/V3__add_category_and_retire_support.sql) |
+
+```bash
+pip install -e "libs/auth-middleware[dev]"
+pip install -e "libs/skills-persistence[dev]"
+pip install -e "services/skills-framework[dev]"
+pytest services/skills-framework/tests -q
+./scripts/validate_and_publish_openapi.sh
+```
+
 ### Migrate PostgreSQL
 
 ```bash
