@@ -20,3 +20,12 @@ __pycache__/
 htmlcov/
 .mypy_cache/
 *.pyc
+
+# ML artifacts / tracking
+mlruns/
+mlflow.db
+artifacts/
+ml/artifacts/
+.asiwdp-ml-cache/
+*.joblib
+catboost_info/

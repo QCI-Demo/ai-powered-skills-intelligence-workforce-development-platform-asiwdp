@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asiwdp-ml"
+version = "0.1.0"
+description = "Recommendation, career-forecast, and adaptive-sequencing models for ASIWDP"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "ASIWDP Platform Team" }]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "xgboost>=2.0",
+    "mlflow>=2.10",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.0",
+    "PyYAML>=6.0",
+    "joblib>=1.3",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+asiwdp-train-recommendation = "asiwdp_ml.recommendation.train:main"
+asiwdp-train-career-forecast = "asiwdp_ml.career_forecast.train:main"
+asiwdp-train-adaptive-sequencing = "asiwdp_ml.adaptive_sequencing.train:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/ml"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
