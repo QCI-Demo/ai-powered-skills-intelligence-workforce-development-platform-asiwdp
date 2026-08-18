@@ -119,8 +119,9 @@ class FeatureStoreClient:
             modules_completed = float(rng.integers(0, 25))
             avg_assessment = float(rng.uniform(0.4, 0.98))
 
-            # Next-role labels are driven by readiness signals so the classifier
-            # can learn: high coverage/growth/velocity → adjacent senior role.
+            # Next-role labels are mostly deterministic from readiness so the
+            # classifier can learn: high coverage/growth/velocity → adjacent
+            # senior role; low readiness → lateral/same band.
             readiness = (
                 0.35 * competency_coverage
                 + 0.25 * np.clip(skill_growth_rate / 0.2, 0, 1)
@@ -128,21 +129,19 @@ class FeatureStoreClient:
                 + 0.10 * np.clip(tenure_months / 36.0, 0, 1)
                 + 0.10 * org_mobility
             )
-            transition_weights = np.zeros(len(ROLE_IDS))
-            for j in range(len(ROLE_IDS)):
-                distance = abs(j - current_role_idx)
-                weight = max(0.02, 1.0 / (1 + distance))
-                if j == current_role_idx + 1 and readiness > 0.55:
-                    weight *= 3.0 + readiness
-                elif j > current_role_idx and readiness > 0.7:
-                    weight *= 1.5 + readiness
-                elif j < current_role_idx:
-                    weight *= 0.25 + 0.4 * (1.0 - readiness)
-                else:
-                    weight *= 0.8
-                transition_weights[j] = weight
-            transition_weights /= transition_weights.sum()
-            next_role = str(rng.choice(ROLE_IDS, p=transition_weights))
+            if readiness >= 0.72 and current_role_idx < len(ROLE_IDS) - 1:
+                target_idx = min(current_role_idx + 2, len(ROLE_IDS) - 1)
+            elif readiness >= 0.55 and current_role_idx < len(ROLE_IDS) - 1:
+                target_idx = current_role_idx + 1
+            elif readiness <= 0.35 and current_role_idx > 0:
+                target_idx = current_role_idx - 1
+            else:
+                target_idx = current_role_idx
+            # Light label noise (~12%) keeps the task realistic without
+            # destroying learnable structure.
+            if rng.random() < 0.12:
+                target_idx = int(rng.integers(0, len(ROLE_IDS)))
+            next_role = ROLE_IDS[target_idx]
 
             rows.append(
                 {

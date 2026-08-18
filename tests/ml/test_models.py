@@ -39,7 +39,9 @@ def career_artifacts(tmp_path_factory) -> Path:
     result = train_career_forecast_model(
         artifact_dir=root, register=False, n_learners=120, seed=1
     )
-    assert result["accuracy"] >= 0.0
+    # Above chance for 6 role classes (~0.167); readiness-driven labels.
+    assert result["accuracy"] >= 0.35
+    assert result["top3_accuracy"] >= 0.7
     return root
 
 
