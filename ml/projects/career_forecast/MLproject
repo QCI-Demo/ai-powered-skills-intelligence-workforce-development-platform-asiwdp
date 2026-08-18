@@ -1,0 +1,25 @@
+name: asiwdp-career-forecast
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      artifact_dir: {type: string, default: artifacts/career_forecast}
+      n_learners: {type: int, default: 300}
+      seed: {type: int, default: 42}
+    command: >
+      python -m asiwdp_ml.career_forecast.train
+      --artifact-dir {artifact_dir}
+      --n-learners {n_learners}
+      --seed {seed}
+
+  train-local:
+    parameters:
+      artifact_dir: {type: string, default: artifacts/career_forecast}
+      n_learners: {type: int, default: 300}
+    command: >
+      python -m asiwdp_ml.career_forecast.train
+      --artifact-dir {artifact_dir}
+      --n-learners {n_learners}
+      --no-register
