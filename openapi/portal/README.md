@@ -6,4 +6,4 @@ Published OpenAPI documents for consumption by the developer portal.
 |------|--------|
 | `skills-framework-service.yaml` | `../skills-framework-service.yaml` |
 
-Last published: 2026-08-18T18:47:40Z
+Last published: 2026-08-18T18:54:57Z
