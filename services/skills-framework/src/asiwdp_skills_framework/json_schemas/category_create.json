@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/category_create.json",
+  "title": "CategoryCreate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "name"],
+  "properties": {
+    "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": ["string", "null"] },
+    "parent_category_id": { "type": ["string", "null"], "format": "uuid" },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "tenant_id": { "type": ["string", "null"], "format": "uuid" }
+  }
+}

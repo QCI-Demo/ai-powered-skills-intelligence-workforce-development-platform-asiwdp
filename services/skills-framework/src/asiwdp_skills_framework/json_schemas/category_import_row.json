@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/category_import_row.json",
+  "title": "CategoryImportRow",
+  "type": "object",
+  "required": ["tenant_id", "version", "code", "name"],
+  "properties": {
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "version": { "type": "integer", "minimum": 1 },
+    "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": ["string", "null"] },
+    "parent_category_id": { "type": ["string", "null"], "format": "uuid" },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["active", "deprecated", "draft", null]
+    }
+  }
+}
