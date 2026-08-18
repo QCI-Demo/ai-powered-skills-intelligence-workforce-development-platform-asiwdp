@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--version", required=True, help="Registered model version number")
     parser.add_argument("--stage", default="Production")
-    parser.add_argument("--tracking-uri", default=os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns"))
+    parser.add_argument("--tracking-uri", default=os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     args = parser.parse_args(argv)
 
     configure_mlflow(tracking_uri=args.tracking_uri)

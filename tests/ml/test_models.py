@@ -115,6 +115,12 @@ def test_recommendation_serving_endpoint(recommendation_artifacts: Path):
         assert body["model_metadata"]["model_name"] == json.loads(
             (recommendation_artifacts / "metadata.json").read_text()
         )["model_name"]
+        # Versioned alias routes
+        v1_health = client.get("/api/v1/health")
+        assert v1_health.status_code == 200
+        v1_resp = client.post("/api/v1/predict", json=sample_payload("recommendation"))
+        assert v1_resp.status_code == 200
+        assert v1_resp.json()["model_metadata"]["model_version"]
 
 
 def test_career_serving_endpoint(career_artifacts: Path):

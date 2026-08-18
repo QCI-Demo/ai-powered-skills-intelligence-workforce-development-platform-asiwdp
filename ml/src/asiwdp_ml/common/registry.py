@@ -105,14 +105,39 @@ def promote_model_stage(
     stage: str = "Production",
     archive_existing: bool = True,
 ) -> None:
-    """Promote a model version from Staging to Production (or other stage)."""
+    """Promote a model version from Staging to Production (or other stage).
+
+    Prefers MLflow Registry aliases (forward-compatible) and also transitions
+    the legacy stage field when the tracking server still supports it.
+    """
     client = MlflowClient()
-    client.transition_model_version_stage(
-        name=registered_model_name,
-        version=version,
-        stage=stage,
-        archive_existing_versions=archive_existing,
-    )
+    alias = stage.lower()
+    try:
+        client.set_registered_model_alias(
+            name=registered_model_name,
+            alias=alias,
+            version=version,
+        )
+    except Exception:
+        # Older tracking servers may not support aliases.
+        pass
+
+    try:
+        client.transition_model_version_stage(
+            name=registered_model_name,
+            version=version,
+            stage=stage,
+            archive_existing_versions=archive_existing,
+        )
+    except Exception as exc:
+        # If alias succeeded, treat stage deprecation/removal as non-fatal.
+        try:
+            client.get_model_version_by_alias(registered_model_name, alias)
+        except Exception as alias_exc:
+            raise RuntimeError(
+                f"Failed to promote {registered_model_name} v{version} to {stage}"
+            ) from exc
+        _ = alias_exc  # alias path succeeded
 
 
 def write_local_artifact_bundle(

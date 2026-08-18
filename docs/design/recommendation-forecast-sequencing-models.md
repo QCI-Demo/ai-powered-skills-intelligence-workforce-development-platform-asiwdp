@@ -57,6 +57,10 @@ suitability regressor (`asiwdp-adaptive-sequencing`).
 }
 ```
 
+Serving containers expose both `/predict` and versioned `/api/v1/predict`
+(plus matching `/health` routes). Registry promotion sets the `production`
+alias and transitions the legacy stage field when available.
+
 ## Privacy
 
 Synthetic training paths use opaque learner IDs only. No employee PII is

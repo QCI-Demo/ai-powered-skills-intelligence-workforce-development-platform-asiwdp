@@ -62,15 +62,7 @@ def create_app(model_kind: ModelKind | None = None, artifact_dir: str | Path | N
         lifespan=lifespan,
     )
 
-    @app.get("/health")
-    def health() -> dict[str, Any]:
-        meta = None
-        if state["model"] is not None:
-            meta = state["model"].metadata.to_dict()
-        return {"status": "ok", "model_kind": kind, "model_metadata": meta}
-
-    @app.post("/predict", response_model=PredictResponse)
-    def predict(body: PredictRequest) -> dict[str, Any]:
+    def _run_predict(body: PredictRequest) -> dict[str, Any]:
         model = state["model"]
         if model is None:
             raise HTTPException(status_code=503, detail="Model not loaded")
@@ -92,5 +84,18 @@ def create_app(model_kind: ModelKind | None = None, artifact_dir: str | Path | N
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         raise HTTPException(status_code=500, detail="Unhandled model kind")
+
+    @app.get("/health")
+    @app.get("/api/v1/health")
+    def health() -> dict[str, Any]:
+        meta = None
+        if state["model"] is not None:
+            meta = state["model"].metadata.to_dict()
+        return {"status": "ok", "model_kind": kind, "model_metadata": meta}
+
+    @app.post("/predict", response_model=PredictResponse)
+    @app.post("/api/v1/predict", response_model=PredictResponse)
+    def predict(body: PredictRequest) -> dict[str, Any]:
+        return _run_predict(body)
 
     return app

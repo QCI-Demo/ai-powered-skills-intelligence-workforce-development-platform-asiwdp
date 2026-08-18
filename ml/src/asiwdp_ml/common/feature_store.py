@@ -108,15 +108,6 @@ class FeatureStoreClient:
         for i in range(n_learners):
             current_role_idx = int(rng.integers(0, len(ROLE_IDS) - 1))
             current_role = ROLE_IDS[current_role_idx]
-            # Prefer transitions to adjacent / higher roles.
-            transition_weights = np.zeros(len(ROLE_IDS))
-            for j in range(len(ROLE_IDS)):
-                distance = abs(j - current_role_idx)
-                transition_weights[j] = max(0.05, 1.0 / (1 + distance))
-                if j < current_role_idx:
-                    transition_weights[j] *= 0.35
-            transition_weights /= transition_weights.sum()
-            next_role = str(rng.choice(ROLE_IDS, p=transition_weights))
 
             tenure_months = float(rng.uniform(3, 48))
             skill_growth_rate = float(rng.normal(0.08, 0.04))
@@ -124,6 +115,34 @@ class FeatureStoreClient:
             competency_coverage = float(rng.uniform(0.2, 0.95))
             learning_velocity = float(rng.uniform(0.5, 8.0))
             role_affinity = float(rng.uniform(0.1, 1.0))
+            org_mobility = float(rng.uniform(0.0, 1.0))
+            modules_completed = float(rng.integers(0, 25))
+            avg_assessment = float(rng.uniform(0.4, 0.98))
+
+            # Next-role labels are driven by readiness signals so the classifier
+            # can learn: high coverage/growth/velocity → adjacent senior role.
+            readiness = (
+                0.35 * competency_coverage
+                + 0.25 * np.clip(skill_growth_rate / 0.2, 0, 1)
+                + 0.20 * np.clip(learning_velocity / 8.0, 0, 1)
+                + 0.10 * np.clip(tenure_months / 36.0, 0, 1)
+                + 0.10 * org_mobility
+            )
+            transition_weights = np.zeros(len(ROLE_IDS))
+            for j in range(len(ROLE_IDS)):
+                distance = abs(j - current_role_idx)
+                weight = max(0.02, 1.0 / (1 + distance))
+                if j == current_role_idx + 1 and readiness > 0.55:
+                    weight *= 3.0 + readiness
+                elif j > current_role_idx and readiness > 0.7:
+                    weight *= 1.5 + readiness
+                elif j < current_role_idx:
+                    weight *= 0.25 + 0.4 * (1.0 - readiness)
+                else:
+                    weight *= 0.8
+                transition_weights[j] = weight
+            transition_weights /= transition_weights.sum()
+            next_role = str(rng.choice(ROLE_IDS, p=transition_weights))
 
             rows.append(
                 {
@@ -137,10 +156,10 @@ class FeatureStoreClient:
                     "skill_growth_rate_90d": skill_growth_rate * float(rng.uniform(0.7, 1.2)),
                     "competency_coverage": competency_coverage,
                     "learning_velocity": learning_velocity,
-                    "modules_completed_90d": float(rng.integers(0, 25)),
-                    "avg_assessment_score": float(rng.uniform(0.4, 0.98)),
+                    "modules_completed_90d": modules_completed,
+                    "avg_assessment_score": avg_assessment,
                     "role_affinity_score": role_affinity,
-                    "org_mobility_index": float(rng.uniform(0.0, 1.0)),
+                    "org_mobility_index": org_mobility,
                     "next_role": next_role,
                 }
             )
