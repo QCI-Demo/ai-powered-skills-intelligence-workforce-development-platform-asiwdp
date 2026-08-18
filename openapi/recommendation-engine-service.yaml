@@ -5,10 +5,15 @@ info:
   description: |
     AI recommendation APIs. Protected by OAuth2/JWT tenant-scoped RBAC.
     Required scopes documented per operation.
+
+    Model-serving containers (recommendation ranking, career forecast, adaptive
+    sequencing) additionally expose versioned `/api/v1/predict` endpoints that
+    always return `rationale` and `model_metadata` for explainability.
 servers:
   - url: /api/v1
 tags:
   - name: Recommendations
+  - name: ModelServing
   - name: Health
 paths:
   /health:
@@ -61,6 +66,28 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /predict:
+    post:
+      tags: [ModelServing]
+      summary: Score candidates / forecast roles / sequence modules
+      description: |
+        Versioned model-serving endpoint used by the MLflow-packaged containers.
+        Response always includes per-item and summary `rationale` strings plus
+        `model_metadata` (name, version, stage, framework, metrics).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictRequest"
+      responses:
+        "200":
+          description: Ranked predictions with rationale and model metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictResponse"
 components:
   securitySchemes:
     OAuth2Bearer:
@@ -101,5 +128,71 @@ components:
           type: string
         message:
           type: string
+    PredictRequest:
+      type: object
+      properties:
+        learner_id:
+          type: string
+        tenant_id:
+          type: string
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 5
+        candidates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Recommendation ranking candidates (skill-gap + content features)
+        features:
+          type: object
+          additionalProperties: true
+          description: Career-forecast temporal feature vector
+        modules:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Adaptive sequencing module candidates
+    ModelMetadata:
+      type: object
+      required: [model_name, model_version, framework, trained_at]
+      properties:
+        model_name:
+          type: string
+        model_version:
+          type: string
+        mlflow_run_id:
+          type: string
+          nullable: true
+        stage:
+          type: string
+        trained_at:
+          type: string
+          format: date-time
+        framework:
+          type: string
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+        feature_schema_version:
+          type: string
+    PredictResponse:
+      type: object
+      required: [predictions, rationale, model_metadata]
+      properties:
+        predictions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        rationale:
+          type: string
+          description: Human-readable summary explanation
+        model_metadata:
+          $ref: "#/components/schemas/ModelMetadata"
 security:
   - OAuth2Bearer: []
