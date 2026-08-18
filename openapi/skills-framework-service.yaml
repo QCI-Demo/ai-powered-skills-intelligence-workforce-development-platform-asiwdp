@@ -33,6 +33,8 @@ paths:
     get:
       tags: [Health]
       summary: Liveness probe
+      description: Service liveness probe (unauthenticated).
+      operationId: healthCheck
       security: []
       responses:
         "200":
@@ -51,6 +53,7 @@ paths:
       tags: [Skills]
       summary: List skills in the caller's tenant
       description: Requires scope/permission `skills:read`.
+      operationId: listSkills
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -78,6 +81,7 @@ paths:
       tags: [Skills]
       summary: Create a skill
       description: Requires scope/permission `skills:write`. Persists and returns `version`.
+      operationId: createSkill
       security:
         - OAuth2Bearer: [skills:write]
       parameters:
@@ -108,6 +112,8 @@ paths:
     get:
       tags: [Skills]
       summary: Search skills
+      description: Search skills by name or code within the tenant. Requires `skills:read`.
+      operationId: searchSkills
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -136,6 +142,8 @@ paths:
     get:
       tags: [Skills]
       summary: Get skill by ID
+      description: Get skill by ID within the caller tenant.
+      operationId: getSkill
       security:
         - OAuth2Bearer: [skills:read]
       responses:
@@ -154,6 +162,8 @@ paths:
     patch:
       tags: [Skills]
       summary: Update a skill
+      description: Update skill fields within the caller tenant. Requires `skills:write`.
+      operationId: updateSkill
       security:
         - OAuth2Bearer: [skills:write]
       requestBody:
@@ -183,6 +193,8 @@ paths:
     post:
       tags: [Skills]
       summary: Retire (deprecate) a skill
+      description: Soft-deprecate a skill (status → deprecated). Requires `skills:write`.
+      operationId: retireSkill
       security:
         - OAuth2Bearer: [skills:write]
       responses:
@@ -203,6 +215,8 @@ paths:
     get:
       tags: [Categories]
       summary: List categories
+      description: List categories in the caller's tenant. Requires `skills:read`.
+      operationId: listCategories
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -225,6 +239,8 @@ paths:
     post:
       tags: [Categories]
       summary: Create a category
+      description: Create a category. Requires `skills:write`. Persists and returns `version`.
+      operationId: createCategory
       security:
         - OAuth2Bearer: [skills:write]
       parameters:
@@ -253,6 +269,8 @@ paths:
     get:
       tags: [Categories]
       summary: Search categories
+      description: Search categories by name or code. Requires `skills:read`.
+      operationId: searchCategories
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -281,6 +299,8 @@ paths:
     get:
       tags: [Categories]
       summary: Get category by ID
+      description: Get category by ID within the caller tenant.
+      operationId: getCategory
       security:
         - OAuth2Bearer: [skills:read]
       responses:
@@ -299,6 +319,8 @@ paths:
     patch:
       tags: [Categories]
       summary: Update a category
+      description: Update a category. Requires `skills:write`.
+      operationId: updateCategory
       security:
         - OAuth2Bearer: [skills:write]
       requestBody:
@@ -328,6 +350,8 @@ paths:
     post:
       tags: [Categories]
       summary: Retire (deprecate) a category
+      description: Retire (soft-deprecate) a category. Requires `skills:write`.
+      operationId: retireCategory
       security:
         - OAuth2Bearer: [skills:write]
       responses:
@@ -348,6 +372,8 @@ paths:
     get:
       tags: [Proficiencies]
       summary: List proficiency levels
+      description: List proficiency levels in the caller's tenant. Requires `skills:read`.
+      operationId: listProficiencies
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -370,6 +396,8 @@ paths:
     post:
       tags: [Proficiencies]
       summary: Create a proficiency level
+      description: Create a proficiency level. Requires `skills:write`. Persists and returns `version`.
+      operationId: createProficiency
       security:
         - OAuth2Bearer: [skills:write]
       parameters:
@@ -398,6 +426,8 @@ paths:
     get:
       tags: [Proficiencies]
       summary: Search proficiency levels
+      description: Search proficiency levels by name or code. Requires `skills:read`.
+      operationId: searchProficiencies
       security:
         - OAuth2Bearer: [skills:read]
       parameters:
@@ -426,6 +456,8 @@ paths:
     get:
       tags: [Proficiencies]
       summary: Get proficiency by ID
+      description: Get proficiency level by ID within the caller tenant.
+      operationId: getProficiency
       security:
         - OAuth2Bearer: [skills:read]
       responses:
@@ -444,6 +476,8 @@ paths:
     patch:
       tags: [Proficiencies]
       summary: Update a proficiency level
+      description: Update a proficiency level. Requires `skills:write`.
+      operationId: updateProficiency
       security:
         - OAuth2Bearer: [skills:write]
       requestBody:
@@ -473,6 +507,8 @@ paths:
     post:
       tags: [Proficiencies]
       summary: Retire (deprecate) a proficiency level
+      description: Retire (soft-deprecate) a proficiency level. Requires `skills:write`.
+      operationId: retireProficiency
       security:
         - OAuth2Bearer: [skills:write]
       responses:
@@ -498,6 +534,7 @@ paths:
         row (tenant_id, version, required attributes), persists successes,
         writes per-row audit entries, and returns a detailed import report.
         Requires `skills:write`.
+      operationId: importTaxonomy
       security:
         - OAuth2Bearer: [skills:write]
       parameters:
@@ -546,6 +583,7 @@ paths:
         negotiated via the `Accept` header (`application/json` or `text/csv`)
         or the `format` query parameter. Requires `skills:read` (or
         `analytics:export` for analysts).
+      operationId: exportTaxonomy
       security:
         - OAuth2Bearer: [skills:read]
         - OAuth2Bearer: [analytics:export]
@@ -596,6 +634,8 @@ paths:
     get:
       tags: [Competencies]
       summary: List competencies
+      description: List competency requirements. Requires `competencies:read`.
+      operationId: listCompetencies
       security:
         - OAuth2Bearer: [competencies:read]
       responses:
@@ -608,6 +648,8 @@ paths:
     post:
       tags: [Competencies]
       summary: Create competency
+      description: Create a competency requirement. Requires `competencies:write`.
+      operationId: createCompetency
       security:
         - OAuth2Bearer: [competencies:write]
       responses:
@@ -621,13 +663,38 @@ paths:
 components:
   securitySchemes:
     OAuth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+      type: oauth2
       description: |
-        OAuth2 access token (JWT). Required claims: `sub`, `tenant_id`, `roles`,
-        `scopes`, `iss`, `aud`, `iat`, `exp`. Role-to-permission expansion uses
-        `config/rbac/role-permission-matrix.yaml`. Tenant isolation is mandatory.
+        OAuth2 access token (JWT Bearer). Required claims: `sub`, `tenant_id`,
+        `roles`, `scopes`, `iss`, `aud`, `iat`, `exp`. Role-to-permission
+        expansion uses `config/rbac/role-permission-matrix.yaml`. Tenant
+        isolation is mandatory for all taxonomy operations.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.asiwdp.example/oauth/authorize
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills, categories, proficiency levels, export
+            skills:write: Create/update/retire/import skills taxonomy
+            skills:delete: Delete skills taxonomy entities
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create/update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+            analytics:export: Export taxonomy snapshots
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills, categories, proficiency levels, export
+            skills:write: Create/update/retire/import skills taxonomy
+            skills:delete: Delete skills taxonomy entities
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create/update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+            analytics:export: Export taxonomy snapshots
     OAuth2ClientCredentials:
       type: oauth2
       description: Machine-to-machine client credentials flow for service accounts.
