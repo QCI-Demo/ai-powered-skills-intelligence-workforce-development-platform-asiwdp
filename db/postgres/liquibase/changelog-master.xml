@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Liquibase alternative to Flyway for the skills taxonomy schema.
+  Prefer Flyway scripts under ../sql for the primary migration path;
+  this changelog includes the same SQL with explicit rollback blocks.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="V1-create-skill-taxonomy-schema" author="asiwdp">
+        <sqlFile path="../sql/V1__create_skill_taxonomy_schema.sql"
+                 relativeToChangelogFile="true"
+                 splitStatements="true"
+                 stripComments="false"/>
+        <rollback>
+            <sqlFile path="../undo/U1__drop_skill_taxonomy_schema.sql"
+                     relativeToChangelogFile="true"
+                     splitStatements="true"
+                     stripComments="false"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="V2-seed-demo-tenant-taxonomy" author="asiwdp">
+        <sqlFile path="../sql/V2__seed_demo_tenant_taxonomy.sql"
+                 relativeToChangelogFile="true"
+                 splitStatements="true"
+                 stripComments="false"/>
+        <rollback>
+            <sqlFile path="../undo/U2__unseed_demo_tenant_taxonomy.sql"
+                     relativeToChangelogFile="true"
+                     splitStatements="true"
+                     stripComments="false"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
