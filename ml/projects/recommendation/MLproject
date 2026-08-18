@@ -1,0 +1,25 @@
+name: asiwdp-recommendation
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      artifact_dir: {type: string, default: artifacts/recommendation}
+      n_learners: {type: int, default: 200}
+      seed: {type: int, default: 42}
+    command: >
+      python -m asiwdp_ml.recommendation.train
+      --artifact-dir {artifact_dir}
+      --n-learners {n_learners}
+      --seed {seed}
+
+  train-local:
+    parameters:
+      artifact_dir: {type: string, default: artifacts/recommendation}
+      n_learners: {type: int, default: 200}
+    command: >
+      python -m asiwdp_ml.recommendation.train
+      --artifact-dir {artifact_dir}
+      --n-learners {n_learners}
+      --no-register
