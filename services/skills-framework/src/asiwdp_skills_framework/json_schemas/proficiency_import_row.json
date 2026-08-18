@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/proficiency_import_row.json",
+  "title": "ProficiencyImportRow",
+  "type": "object",
+  "required": ["tenant_id", "version", "level", "code", "name", "rank_order"],
+  "properties": {
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "version": { "type": "integer", "minimum": 1 },
+    "level": { "type": "integer", "minimum": 1 },
+    "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": ["string", "null"] },
+    "rank_order": { "type": "integer" },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["active", "deprecated", "draft", null]
+    }
+  }
+}
