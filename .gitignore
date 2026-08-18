@@ -27,5 +27,6 @@ mlflow.db
 artifacts/
 ml/artifacts/
 .asiwdp-ml-cache/
+tmp/
 *.joblib
 catboost_info/
