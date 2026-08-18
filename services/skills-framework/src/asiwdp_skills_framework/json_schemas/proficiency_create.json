@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/proficiency_create.json",
+  "title": "ProficiencyCreate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["level", "code", "name", "rank_order"],
+  "properties": {
+    "level": { "type": "integer", "minimum": 1 },
+    "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": ["string", "null"] },
+    "rank_order": { "type": "integer" },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "tenant_id": { "type": ["string", "null"], "format": "uuid" }
+  }
+}
