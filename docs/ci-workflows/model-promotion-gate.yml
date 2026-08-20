@@ -1,0 +1,96 @@
+# Model Promotion Gate Workflow
+#
+# Gates model promotion based on bias evaluation results.
+# This workflow can be triggered as part of a model deployment pipeline
+# to ensure models meet fairness requirements before promotion.
+
+name: Model Promotion Bias Gate
+
+on:
+  workflow_call:
+    inputs:
+      model_name:
+        description: 'Name of the model to check'
+        required: true
+        type: string
+      model_version:
+        description: 'Version of the model to check'
+        required: true
+        type: string
+    outputs:
+      passed:
+        description: 'Whether the model passed the bias gate'
+        value: ${{ jobs.bias-gate.outputs.passed }}
+      bias_index:
+        description: 'The computed bias index'
+        value: ${{ jobs.bias-gate.outputs.bias_index }}
+
+  workflow_dispatch:
+    inputs:
+      model_name:
+        description: 'Name of the model to check'
+        required: true
+        type: string
+      model_version:
+        description: 'Version of the model to check'
+        required: true
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  bias-gate:
+    name: Check Bias Gate
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.gate-check.outputs.passed }}
+      bias_index: ${{ steps.gate-check.outputs.bias_index }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e "libs/model-monitoring[full]"
+
+      - name: Check bias gate
+        id: gate-check
+        env:
+          BIAS_THRESHOLD: ${{ vars.BIAS_THRESHOLD || '0.05' }}
+          BIAS_MONITORING_DATABASE_URL: ${{ secrets.BIAS_MONITORING_DATABASE_URL }}
+        run: |
+          RESULT=$(bias-gate-check "${{ inputs.model_name }}" "${{ inputs.model_version }}" --output-json)
+          echo "$RESULT"
+          
+          PASSED=$(echo "$RESULT" | jq -r '.passed')
+          BIAS_INDEX=$(echo "$RESULT" | jq -r '.bias_index')
+          
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "bias_index=$BIAS_INDEX" >> $GITHUB_OUTPUT
+          
+          if [ "$PASSED" != "true" ]; then
+            echo "::error::Model ${{ inputs.model_name }} v${{ inputs.model_version }} failed bias gate check"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Bias Gate Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Model | ${{ inputs.model_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ inputs.model_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bias Index | ${{ steps.gate-check.outputs.bias_index }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Threshold | ${{ vars.BIAS_THRESHOLD || '0.05' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Result | ${{ steps.gate-check.outputs.passed == 'true' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
