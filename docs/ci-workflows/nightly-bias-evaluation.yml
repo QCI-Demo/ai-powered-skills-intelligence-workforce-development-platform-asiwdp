@@ -1,0 +1,76 @@
+# Nightly Bias Evaluation Workflow
+#
+# Runs automated bias/fairness evaluation for all production ML models.
+# Results are stored in PostgreSQL for audit and alerts are triggered
+# when bias thresholds are breached.
+
+name: Nightly Bias Evaluation
+
+on:
+  schedule:
+    # Run at 2:00 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no persistence or alerts)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  bias-evaluation:
+    name: Run Bias Evaluation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e "libs/model-monitoring[full]"
+
+      - name: Download validation data
+        run: |
+          # In production, this would fetch from S3, GCS, or data warehouse
+          # For now, we expect validation data to be available
+          echo "Validation data path: ${{ vars.VALIDATION_DATA_PATH }}"
+
+      - name: Run bias evaluation
+        env:
+          BIAS_THRESHOLD: ${{ vars.BIAS_THRESHOLD || '0.05' }}
+          BIAS_PROTECTED_ATTRIBUTES: ${{ vars.BIAS_PROTECTED_ATTRIBUTES || 'gender,age_group,ethnicity,disability_status' }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          BIAS_MONITORING_DATABASE_URL: ${{ secrets.BIAS_MONITORING_DATABASE_URL }}
+          BIAS_ALERT_ENABLED: ${{ vars.BIAS_ALERT_ENABLED || 'true' }}
+          BIAS_ALERT_WEBHOOK_URL: ${{ secrets.BIAS_ALERT_WEBHOOK_URL }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          
+          nightly-bias-eval \
+            "${{ vars.VALIDATION_DATA_PATH }}" \
+            --target-column "${{ vars.TARGET_COLUMN || 'target' }}" \
+            --verbose \
+            $DRY_RUN_FLAG
+
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bias-evaluation-report
+          path: bias_evaluation_*.json
+          retention-days: 90
