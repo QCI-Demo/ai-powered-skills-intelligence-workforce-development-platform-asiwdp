@@ -1,0 +1,49 @@
+{
+  "id": "skills-api-env-template",
+  "name": "ASIWDP Skills API Environment",
+  "values": [
+    {
+      "key": "API_BASE_URL",
+      "value": "http://localhost:8080",
+      "type": "default",
+      "enabled": true,
+      "description": "Base URL for the Skills API service"
+    },
+    {
+      "key": "TENANT_ID",
+      "value": "tenant-a-00000000-0000-0000-0000-000000000001",
+      "type": "default",
+      "enabled": true,
+      "description": "Primary tenant ID for testing"
+    },
+    {
+      "key": "ACCESS_TOKEN",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "OAuth2 Bearer token with skills:read, skills:write, skills:delete scopes"
+    },
+    {
+      "key": "READ_ONLY_TOKEN",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "OAuth2 Bearer token with skills:read scope only (for 403 tests)"
+    },
+    {
+      "key": "TENANT_B_ID",
+      "value": "tenant-b-00000000-0000-0000-0000-000000000002",
+      "type": "default",
+      "enabled": true,
+      "description": "Secondary tenant ID for cross-tenant isolation tests"
+    },
+    {
+      "key": "TENANT_B_TOKEN",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "OAuth2 Bearer token for Tenant B"
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

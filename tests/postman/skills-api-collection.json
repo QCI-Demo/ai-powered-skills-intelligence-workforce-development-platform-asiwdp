@@ -1,0 +1,1249 @@
+{
+  "info": {
+    "_postman_id": "3082bdf8-e27b-4ab8-b91a-031ef15f184f",
+    "name": "ASIWDP Skills API Test Suite",
+    "description": "Comprehensive API tests for Skills Framework Service covering CRUD, bulk import/export, versioning, tenant isolation, and error scenarios.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{API_BASE_URL}}/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "tenant_id",
+      "value": "{{TENANT_ID}}",
+      "type": "string"
+    },
+    {
+      "key": "version",
+      "value": "v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "{{ACCESS_TOKEN}}",
+      "type": "string"
+    },
+    {
+      "key": "skill_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "competency_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET /health - Liveness Probe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response time is acceptable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(100);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Skills CRUD",
+      "item": [
+        {
+          "name": "POST /skills - Create Skill (Valid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has required schema fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData).to.have.property('tenant_id');",
+                  "    pm.expect(jsonData).to.have.property('version');",
+                  "    pm.expect(jsonData).to.have.property('created_at');",
+                  "});",
+                  "",
+                  "pm.test('Tenant ID matches request context', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.tenant_id).to.eql(pm.variables.get('tenant_id'));",
+                  "});",
+                  "",
+                  "pm.test('Save skill_id for subsequent tests', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('skill_id', jsonData.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Python Programming\",\n  \"description\": \"Proficiency in Python programming language\",\n  \"category\": \"Technical\",\n  \"proficiency_levels\": [\n    { \"level\": 1, \"name\": \"Beginner\", \"description\": \"Basic syntax knowledge\" },\n    { \"level\": 2, \"name\": \"Intermediate\", \"description\": \"Can write functional programs\" },\n    { \"level\": 3, \"name\": \"Advanced\", \"description\": \"Expert-level proficiency\" }\n  ],\n  \"metadata\": {\n    \"source\": \"internal\",\n    \"tags\": [\"programming\", \"backend\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /skills - Create Skill (Malformed - Missing Name)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 for malformed request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response has correct schema', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "pm.test('Error message indicates missing field', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message.toLowerCase()).to.include('name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Missing required name field\",\n  \"category\": \"Technical\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /skills - Create Skill (Malformed - Invalid JSON)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 for invalid JSON', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response indicates parsing error', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ invalid json syntax }"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills - List All Skills",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data || jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Response time under 50ms SLA', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});",
+                  "",
+                  "pm.test('Skills belong to current tenant', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const skills = jsonData.data || jsonData;",
+                  "    skills.forEach(skill => {",
+                  "        pm.expect(skill.tenant_id).to.eql(pm.variables.get('tenant_id'));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/:id - Get Skill by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has correct skill schema', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData).to.have.property('tenant_id');",
+                  "    pm.expect(jsonData.id).to.eql(pm.collectionVariables.get('skill_id'));",
+                  "});",
+                  "",
+                  "pm.test('Response time under 50ms SLA', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/{{skill_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{skill_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/:id - Get Non-Existent Skill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error response has correct schema', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/00000000-0000-0000-0000-000000000000",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "00000000-0000-0000-0000-000000000000"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /skills/:id - Update Skill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Skill was updated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.name).to.eql('Python Programming (Updated)');",
+                  "});",
+                  "",
+                  "pm.test('Version was incremented', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.version).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Python Programming (Updated)\",\n  \"description\": \"Updated proficiency in Python programming language\",\n  \"category\": \"Technical\",\n  \"proficiency_levels\": [\n    { \"level\": 1, \"name\": \"Beginner\", \"description\": \"Basic syntax knowledge\" },\n    { \"level\": 2, \"name\": \"Intermediate\", \"description\": \"Can write functional programs\" },\n    { \"level\": 3, \"name\": \"Advanced\", \"description\": \"Expert-level proficiency\" },\n    { \"level\": 4, \"name\": \"Expert\", \"description\": \"Industry-leading expertise\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills/{{skill_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{skill_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /skills/:id - Delete Skill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/{{skill_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{skill_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bulk Import/Export",
+      "item": [
+        {
+          "name": "POST /skills/bulk-import - Valid Batch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 202', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "pm.test('Response contains import summary', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('imported_count');",
+                  "    pm.expect(jsonData).to.have.property('failed_count');",
+                  "    pm.expect(jsonData).to.have.property('total_count');",
+                  "});",
+                  "",
+                  "pm.test('All records imported successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.imported_count).to.eql(jsonData.total_count);",
+                  "    pm.expect(jsonData.failed_count).to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\n    {\n      \"name\": \"JavaScript\",\n      \"description\": \"JavaScript programming language\",\n      \"category\": \"Technical\",\n      \"proficiency_levels\": [\n        { \"level\": 1, \"name\": \"Beginner\" },\n        { \"level\": 2, \"name\": \"Intermediate\" },\n        { \"level\": 3, \"name\": \"Advanced\" }\n      ]\n    },\n    {\n      \"name\": \"TypeScript\",\n      \"description\": \"TypeScript programming language\",\n      \"category\": \"Technical\",\n      \"proficiency_levels\": [\n        { \"level\": 1, \"name\": \"Beginner\" },\n        { \"level\": 2, \"name\": \"Intermediate\" },\n        { \"level\": 3, \"name\": \"Advanced\" }\n      ]\n    },\n    {\n      \"name\": \"React\",\n      \"description\": \"React frontend framework\",\n      \"category\": \"Technical\",\n      \"proficiency_levels\": [\n        { \"level\": 1, \"name\": \"Beginner\" },\n        { \"level\": 2, \"name\": \"Intermediate\" },\n        { \"level\": 3, \"name\": \"Advanced\" }\n      ]\n    }\n  ],\n  \"options\": {\n    \"upsert\": true,\n    \"validate_only\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills/bulk-import",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "bulk-import"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /skills/bulk-import - Partial Failure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 207 (Multi-Status)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 207]);",
+                  "});",
+                  "",
+                  "pm.test('Response contains import summary with failures', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('imported_count');",
+                  "    pm.expect(jsonData).to.have.property('failed_count');",
+                  "    pm.expect(jsonData.failed_count).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "pm.test('Response contains error details for failures', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.errors && jsonData.errors.length > 0) {",
+                  "        jsonData.errors.forEach(err => {",
+                  "            pm.expect(err).to.have.property('index');",
+                  "            pm.expect(err).to.have.property('error');",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\n    {\n      \"name\": \"Valid Skill\",\n      \"description\": \"This skill is valid\",\n      \"category\": \"Technical\"\n    },\n    {\n      \"description\": \"This skill is missing required name field\",\n      \"category\": \"Technical\"\n    },\n    {\n      \"name\": \"\",\n      \"description\": \"This skill has empty name\",\n      \"category\": \"Technical\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills/bulk-import",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "bulk-import"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /skills/bulk-import - Validate Only Mode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response indicates validation only', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('validated_count');",
+                  "    pm.expect(jsonData.imported_count).to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\n    {\n      \"name\": \"Docker\",\n      \"description\": \"Container orchestration\",\n      \"category\": \"DevOps\"\n    },\n    {\n      \"name\": \"Kubernetes\",\n      \"description\": \"Container orchestration platform\",\n      \"category\": \"DevOps\"\n    }\n  ],\n  \"options\": {\n    \"validate_only\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills/bulk-import",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "bulk-import"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/export - Export All Skills",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response content type is JSON or CSV', function () {",
+                  "    const contentType = pm.response.headers.get('Content-Type');",
+                  "    pm.expect(contentType).to.match(/json|csv/);",
+                  "});",
+                  "",
+                  "pm.test('Export contains tenant-scoped skills only', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const skills = jsonData.skills || jsonData.data || jsonData;",
+                  "    if (Array.isArray(skills)) {",
+                  "        skills.forEach(skill => {",
+                  "            pm.expect(skill.tenant_id).to.eql(pm.variables.get('tenant_id'));",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/export",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "export"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/export - Export with Version Filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Exported skills match version filter', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const skills = jsonData.skills || jsonData.data || jsonData;",
+                  "    if (Array.isArray(skills)) {",
+                  "        skills.forEach(skill => {",
+                  "            pm.expect(skill.version).to.eql(pm.variables.get('version'));",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/export?version={{version}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "export"],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Versioning",
+      "item": [
+        {
+          "name": "POST /skills - Create Skill for Versioning",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Initial version is 1', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.version).to.eql(1);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('versioned_skill_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Machine Learning\",\n  \"description\": \"ML and AI skills\",\n  \"category\": \"Data Science\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /skills/:id - Update to Create Version 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Version incremented to 2', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.version).to.eql(2);",
+                  "});",
+                  "",
+                  "pm.test('Updated_at timestamp changed', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('updated_at');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Machine Learning\",\n  \"description\": \"ML and AI skills - Updated with Deep Learning\",\n  \"category\": \"Data Science\",\n  \"proficiency_levels\": [\n    { \"level\": 1, \"name\": \"Beginner\" },\n    { \"level\": 2, \"name\": \"Practitioner\" },\n    { \"level\": 3, \"name\": \"Expert\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills/{{versioned_skill_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{versioned_skill_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/:id/versions - List Version History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains version history', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const versions = jsonData.versions || jsonData;",
+                  "    pm.expect(versions).to.be.an('array');",
+                  "    pm.expect(versions.length).to.be.at.least(2);",
+                  "});",
+                  "",
+                  "pm.test('Versions are in descending order', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const versions = jsonData.versions || jsonData;",
+                  "    for (let i = 0; i < versions.length - 1; i++) {",
+                  "        pm.expect(versions[i].version).to.be.at.least(versions[i + 1].version);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/{{versioned_skill_id}}/versions",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{versioned_skill_id}}", "versions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills/:id/versions/:version - Get Specific Version",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains version 1 data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.version).to.eql(1);",
+                  "});",
+                  "",
+                  "pm.test('Historical data preserved', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.description).to.eql('ML and AI skills');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/{{versioned_skill_id}}/versions/1",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{versioned_skill_id}}", "versions", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills?version=latest - Query Latest Version",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All returned skills are latest version', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const skills = jsonData.data || jsonData;",
+                  "    if (Array.isArray(skills)) {",
+                  "        skills.forEach(skill => {",
+                  "            pm.expect(skill.is_latest).to.eql(true);",
+                  "        });",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills?version=latest",
+              "host": ["{{base_url}}"],
+              "path": ["skills"],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "latest"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication & Authorization",
+      "item": [
+        {
+          "name": "GET /skills - No Token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error response has correct schema', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /skills - Invalid Token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error indicates invalid token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error.toLowerCase()).to.include('invalid');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "invalid.jwt.token",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /skills - Insufficient Permissions (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Error indicates forbidden', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{read_only_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Skill\",\n  \"description\": \"Should fail with 403\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/skills",
+              "host": ["{{base_url}}"],
+              "path": ["skills"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Competencies CRUD",
+      "item": [
+        {
+          "name": "GET /competencies - List Competencies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data || jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Response time under 50ms SLA', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/competencies",
+              "host": ["{{base_url}}"],
+              "path": ["competencies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /competencies - Create Competency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has required schema fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData).to.have.property('tenant_id');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('competency_id', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Software Development\",\n  \"description\": \"Full-stack software development competency\",\n  \"skills\": [\n    { \"skill_name\": \"Python Programming\", \"weight\": 0.3 },\n    { \"skill_name\": \"JavaScript\", \"weight\": 0.3 },\n    { \"skill_name\": \"System Design\", \"weight\": 0.4 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/competencies",
+              "host": ["{{base_url}}"],
+              "path": ["competencies"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "DELETE Versioned Skill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/skills/{{versioned_skill_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["skills", "{{versioned_skill_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Global pre-request script",
+          "if (!pm.environment.get('API_BASE_URL')) {",
+          "    pm.environment.set('API_BASE_URL', 'http://localhost:8080');",
+          "}",
+          "",
+          "if (!pm.environment.get('TENANT_ID')) {",
+          "    pm.environment.set('TENANT_ID', 'tenant-a-uuid');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "// Global test script - runs after every request",
+          "pm.test('Response time is acceptable for SLA', function () {",
+          "    // Allow 100ms for general operations, 50ms is the strict SLA for read operations",
+          "    pm.expect(pm.response.responseTime).to.be.below(100);",
+          "});"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ]
+}
