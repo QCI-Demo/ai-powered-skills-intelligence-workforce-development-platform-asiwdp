@@ -1,0 +1,27 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["tenant_id", "defaults", "locale", "timezone", "schema_version"],
+    "properties": {
+      "_id": { "bsonType": ["objectId", "string"] },
+      "tenant_id": {
+        "bsonType": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        "description": "Partition key (UUID); 1:1 with tenants"
+      },
+      "defaults": {
+        "bsonType": "object",
+        "description": "Seeded default feature and privacy settings"
+      },
+      "locale": { "bsonType": "string" },
+      "timezone": { "bsonType": "string" },
+      "metering_enabled": { "bsonType": "bool" },
+      "gdpr_enabled": { "bsonType": "bool" },
+      "ccpa_enabled": { "bsonType": "bool" },
+      "schema_version": { "bsonType": "int", "minimum": 1 },
+      "created_at": { "bsonType": "date" },
+      "updated_at": { "bsonType": "date" }
+    },
+    "additionalProperties": false
+  }
+}
