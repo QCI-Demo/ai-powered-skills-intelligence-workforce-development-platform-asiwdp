@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/tenant-provisioned-event.json",
+  "title": "TenantProvisionedEvent",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "type",
+    "source",
+    "time",
+    "subject",
+    "tenantId",
+    "data"
+  ],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "com.asiwdp.tenant.provisioned" },
+    "source": { "const": "asiwdp.tenant-provisioning" },
+    "time": { "type": "string", "format": "date-time" },
+    "subject": {
+      "type": "string",
+      "pattern": "^tenant/[0-9a-fA-F-]{36}$"
+    },
+    "datacontenttype": { "const": "application/json" },
+    "tenantId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant partition key for bus routing"
+    },
+    "data": {
+      "type": "object",
+      "required": [
+        "tenantId",
+        "slug",
+        "displayName",
+        "status",
+        "provisionedAt",
+        "configuration"
+      ],
+      "properties": {
+        "tenantId": { "type": "string", "format": "uuid" },
+        "slug": { "type": "string" },
+        "displayName": { "type": "string" },
+        "status": { "type": "string" },
+        "planCode": { "type": "string" },
+        "dataResidency": { "type": "string" },
+        "provisionedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": ["string", "null"] },
+        "requestingTenantId": { "type": ["string", "null"] },
+        "idempotencyKey": { "type": "string" },
+        "configuration": {
+          "type": "object",
+          "required": ["locale", "timezone", "schemaVersion"],
+          "properties": {
+            "locale": { "type": "string" },
+            "timezone": { "type": "string" },
+            "schemaVersion": { "type": "integer", "minimum": 1 },
+            "meteringEnabled": { "type": "boolean" },
+            "gdprEnabled": { "type": "boolean" },
+            "ccpaEnabled": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

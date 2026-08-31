@@ -1,0 +1,43 @@
+# ASIWDP API Gateway — Tenant Provisioning Route
+#
+# Adds POST /api/tenants to the edge gateway, forwarding to the tenant-provisioning
+# service. JWT auth (Story S2) is enforced in the service; the gateway forwards
+# Authorization and Idempotency-Key.
+#
+# Upstream mapping:
+#   POST /api/tenants         → POST http://tenant-provisioning:8000/api/tenants
+#   GET  /api/tenants/health  → GET  http://tenant-provisioning:8000/api/tenants/health
+
+services:
+  - name: tenant-provisioning
+    url: http://tenant-provisioning:8000
+    routes:
+      - name: tenant-provision-create
+        paths:
+          - /api/tenants
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-Forwarded-Service:tenant-provisioning
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - POST
+                - OPTIONS
+              headers:
+                - Authorization
+                - Content-Type
+                - Idempotency-Key
+      - name: tenant-provision-health
+        paths:
+          - /api/tenants/health
+        methods:
+          - GET
+        strip_path: false
