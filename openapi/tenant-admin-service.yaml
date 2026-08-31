@@ -1,0 +1,180 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Tenant Admin Service
+  version: 1.0.0
+  description: |
+    Tenant, organization, and user administration edge APIs. Protected by
+    OAuth2/JWT with tenant-scoped RBAC. Platform-scoped `platform_admin`
+    tokens may operate cross-tenant when explicitly enabled.
+servers:
+  - url: /api/v1
+tags:
+  - name: Tenants
+  - name: Organizations
+  - name: Users
+  - name: Roles
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /tenants/me:
+    get:
+      tags: [Tenants]
+      summary: Get current tenant profile
+      description: Requires `tenants:read`.
+      security:
+        - OAuth2Bearer: [tenants:read]
+      responses:
+        "200":
+          description: Tenant profile
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      tags: [Tenants]
+      summary: Update current tenant settings
+      description: Requires `tenants:write`.
+      security:
+        - OAuth2Bearer: [tenants:write]
+      responses:
+        "200":
+          description: Updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations in tenant
+      security:
+        - OAuth2Bearer: [organizations:read]
+      responses:
+        "200":
+          description: Organization list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Organizations]
+      summary: Create organization
+      security:
+        - OAuth2Bearer: [organizations:write]
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /users:
+    get:
+      tags: [Users]
+      summary: List users in tenant
+      security:
+        - OAuth2Bearer: [users:read]
+      responses:
+        "200":
+          description: User list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Users]
+      summary: Invite/create user
+      security:
+        - OAuth2Bearer: [users:write]
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /roles:
+    get:
+      tags: [Roles]
+      summary: List roles available in tenant
+      security:
+        - OAuth2Bearer: [roles:read]
+      responses:
+        "200":
+          description: Role list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Roles]
+      summary: Create or update role bindings
+      description: Requires `roles:write` or `roles:admin`.
+      security:
+        - OAuth2Bearer: [roles:write]
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 JWT access token. Required claims include tenant_id (unless
+        platform_admin break-glass), roles, and scopes. Middleware package:
+        `asiwdp-auth`.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            tenants:read: Read tenant
+            tenants:write: Update tenant
+            tenants:admin: Administer tenants
+            users:read: Read users
+            users:write: Create/update users
+            users:admin: Administer users
+            organizations:read: Read organizations
+            organizations:write: Create/update organizations
+            organizations:admin: Administer organizations
+            roles:read: Read roles
+            roles:write: Manage role bindings
+            roles:admin: Full role administration
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: RBAC denial for tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []
