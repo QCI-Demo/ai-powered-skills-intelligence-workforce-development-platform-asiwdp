@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Analytics Insights Service
+  version: 1.0.0
+  description: |
+    Workforce analytics and readiness insights. OAuth2/JWT with tenant-scoped
+    RBAC (`analytics:read`, `analytics:export`, `analytics:admin`).
+servers:
+  - url: /api/v1
+tags:
+  - name: Analytics
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /analytics/readiness:
+    get:
+      tags: [Analytics]
+      summary: Workforce readiness summary
+      description: Requires `analytics:read`.
+      security:
+        - OAuth2Bearer: [analytics:read]
+      responses:
+        "200":
+          description: Readiness metrics
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /analytics/skill-gaps:
+    get:
+      tags: [Analytics]
+      summary: Skill-gap insights
+      description: Requires `analytics:read`.
+      security:
+        - OAuth2Bearer: [analytics:read]
+      responses:
+        "200":
+          description: Skill-gap report
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /analytics/export:
+    post:
+      tags: [Analytics]
+      summary: Export analytics dataset
+      description: Requires `analytics:export`.
+      security:
+        - OAuth2Bearer: [analytics:export]
+      responses:
+        "202":
+          description: Export accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /analytics/admin/rebuild:
+    post:
+      tags: [Analytics]
+      summary: Rebuild analytics aggregates
+      description: Requires `analytics:admin`.
+      security:
+        - OAuth2Bearer: [analytics:admin]
+      responses:
+        "202":
+          description: Rebuild accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT with tenant_id, roles, scopes.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            analytics:read: Read analytics
+            analytics:export: Export analytics
+            analytics:admin: Administer analytics
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: RBAC denial
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []

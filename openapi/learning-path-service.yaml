@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Learning Path Service
+  version: 1.0.0
+  description: |
+    Personalized learning-path APIs with OAuth2/JWT and tenant-scoped RBAC.
+servers:
+  - url: /api/v1
+tags:
+  - name: LearningPaths
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /learning-paths:
+    get:
+      tags: [LearningPaths]
+      summary: List learning paths
+      description: Requires `learning_paths:read`.
+      security:
+        - OAuth2Bearer: [learning_paths:read]
+      responses:
+        "200":
+          description: Path list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [LearningPaths]
+      summary: Create a learning path
+      description: Requires `learning_paths:write` (learning_designer, tenant_admin).
+      security:
+        - OAuth2Bearer: [learning_paths:write]
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /learning-paths/{pathId}/assign:
+    post:
+      tags: [LearningPaths]
+      summary: Assign a learning path to learners
+      description: Requires `learning_paths:assign`.
+      security:
+        - OAuth2Bearer: [learning_paths:assign]
+      parameters:
+        - name: pathId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Assigned
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /learning-paths/{pathId}:
+    delete:
+      tags: [LearningPaths]
+      summary: Delete a learning path
+      description: Requires `learning_paths:delete` or `learning_paths:admin`.
+      security:
+        - OAuth2Bearer: [learning_paths:delete]
+      parameters:
+        - name: pathId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT with tenant_id, roles, scopes for tenant-scoped RBAC.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            learning_paths:read: Read learning paths
+            learning_paths:write: Create/update learning paths
+            learning_paths:assign: Assign learning paths
+            learning_paths:delete: Delete learning paths
+            learning_paths:admin: Full learning-path administration
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: RBAC denial
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []

@@ -1,0 +1,37 @@
+# API Gateway routes — Tenant Provisioning
+
+Story: Build Automated Tenant Provisioning and Configuration Service  
+Story ID: 486d3e38-2cec-40cb-874d-576d2147732c
+
+Routes registered on the edge gateway for the tenant provisioning service.
+
+routes:
+  - id: tenant-provisioning-create
+    methods: [POST]
+    path: /api/tenants
+    upstream: tenant-provisioning-service
+    upstream_path: /api/tenants
+    auth:
+      required: true
+      roles_any:
+        - PlatformAdmin
+        - platform_admin
+      permissions_any:
+        - tenants:admin
+        - "*"
+    headers_passthrough:
+      - Authorization
+      - Idempotency-Key
+      - X-Correlation-Id
+      - X-Request-Id
+    rate_limit:
+      requests_per_minute: 30
+    timeout_ms: 10000
+
+  - id: tenant-provisioning-health
+    methods: [GET]
+    path: /api/tenants/health
+    upstream: tenant-provisioning-service
+    upstream_path: /health
+    auth:
+      required: false

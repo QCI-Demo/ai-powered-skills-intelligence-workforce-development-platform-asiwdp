@@ -1,0 +1,214 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Tenant Provisioning Service
+  version: 1.0.0
+  description: |
+    Idempotent tenant provisioning API. Creates a tenant record, seeds default
+    configuration and tenant-scoped metadata, and emits a `tenant.provisioned`
+    event. Secured by OAuth2/JWT with PlatformAdmin RBAC (Story S2 middleware).
+servers:
+  - url: /
+tags:
+  - name: Tenants
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /api/tenants:
+    post:
+      tags: [Tenants]
+      summary: Provision a new tenant
+      description: |
+        Requires Bearer JWT with role `PlatformAdmin` (or `platform_admin`).
+        Optional `Idempotency-Key` enables safe retries: identical payloads
+        return the original tenant; conflicting payloads return 409.
+      security:
+        - OAuth2Bearer: [tenants:admin]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 128
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantCreateRequest"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "200":
+          description: Idempotent replay of a prior successful create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Slug or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload validation failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 JWT access token. Middleware package: `asiwdp-auth`.
+        Provisioning requires PlatformAdmin role.
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Caller lacks PlatformAdmin role
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    TenantCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, display_name]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9]([a-z0-9-]{0,126}[a-z0-9])?$"
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        plan_code:
+          type: string
+          default: standard
+        region:
+          type: string
+          default: us-east-1
+        timezone:
+          type: string
+          default: UTC
+        contact:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Tenant-scoped metadata map (values stored as objects)
+    ConfigurationItem:
+      type: object
+      required: [config_key, config_value]
+      properties:
+        config_key:
+          type: string
+        config_value: {}
+        is_default:
+          type: boolean
+        version:
+          type: integer
+    MetadataItem:
+      type: object
+      required: [meta_key, meta_value]
+      properties:
+        meta_key:
+          type: string
+        meta_value:
+          type: object
+          additionalProperties: true
+    TenantResponse:
+      type: object
+      required:
+        - tenant_id
+        - slug
+        - display_name
+        - status
+        - plan_code
+        - region
+        - timezone
+        - contact
+        - provisioned_at
+        - created_at
+        - updated_at
+        - created_by
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        display_name:
+          type: string
+        status:
+          type: string
+        plan_code:
+          type: string
+        region:
+          type: string
+        timezone:
+          type: string
+        contact:
+          type: object
+        provisioned_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        configuration:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigurationItem"
+        metadata:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetadataItem"
+        idempotent_replay:
+          type: boolean
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []

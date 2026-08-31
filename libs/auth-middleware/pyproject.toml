@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asiwdp-auth"
+version = "0.1.0"
+description = "OAuth2/JWT authentication middleware with tenant-scoped RBAC for ASIWDP micro-services"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "ASIWDP Platform Team" }]
+dependencies = [
+    "PyJWT[crypto]>=2.8.0",
+    "PyYAML>=6.0",
+    "starlette>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.27.0",
+    "cryptography>=41.0.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"

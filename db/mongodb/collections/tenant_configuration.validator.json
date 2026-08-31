@@ -1,0 +1,35 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["tenant_id", "config_key", "config_value", "version"],
+    "properties": {
+      "_id": {
+        "bsonType": ["objectId", "string"]
+      },
+      "tenant_id": {
+        "bsonType": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        "description": "Tenant partition key (UUID)"
+      },
+      "config_key": {
+        "bsonType": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "config_value": {
+        "bsonType": ["object", "array", "string", "bool", "int", "long", "double", "null"],
+        "description": "JSON configuration value"
+      },
+      "is_default": {
+        "bsonType": "bool"
+      },
+      "version": {
+        "bsonType": "int",
+        "minimum": 1
+      },
+      "created_at": { "bsonType": "date" },
+      "updated_at": { "bsonType": "date" }
+    },
+    "additionalProperties": false
+  }
+}
