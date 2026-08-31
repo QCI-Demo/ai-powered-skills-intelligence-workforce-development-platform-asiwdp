@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Skills Framework Service
+  version: 1.0.0
+  description: |
+    Skills and competency management APIs for the ASIWDP platform.
+
+    ## Security
+    All endpoints (except health) require an OAuth2 Bearer JWT issued by the
+    platform identity service. Tokens must include `tenant_id`, `roles`, and
+    `scopes`. Tenant-scoped RBAC is enforced by the shared `asiwdp-auth`
+    middleware. See `docs/design/jwt-claim-schema-and-rbac.md`.
+servers:
+  - url: /api/v1
+tags:
+  - name: Skills
+  - name: Competencies
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /skills:
+    get:
+      tags: [Skills]
+      summary: List skills in the caller's tenant
+      description: Requires scope/permission `skills:read`.
+      security:
+        - OAuth2Bearer: [skills:read]
+      responses:
+        "200":
+          description: Skill list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Skills]
+      summary: Create a skill
+      description: Requires scope/permission `skills:write`.
+      security:
+        - OAuth2Bearer: [skills:write]
+      responses:
+        "201":
+          description: Skill created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /skills/{skillId}:
+    parameters:
+      - $ref: "#/components/parameters/SkillId"
+    get:
+      tags: [Skills]
+      summary: Get skill by ID
+      security:
+        - OAuth2Bearer: [skills:read]
+      responses:
+        "200":
+          description: Skill detail
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Skills]
+      summary: Delete a skill
+      description: Requires `skills:delete` or `skills:admin`.
+      security:
+        - OAuth2Bearer: [skills:delete]
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /competencies:
+    get:
+      tags: [Competencies]
+      summary: List competencies
+      security:
+        - OAuth2Bearer: [competencies:read]
+      responses:
+        "200":
+          description: Competency list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Competencies]
+      summary: Create competency
+      security:
+        - OAuth2Bearer: [competencies:write]
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 access token (JWT). Required claims: `sub`, `tenant_id`, `roles`,
+        `scopes`, `iss`, `aud`, `iat`, `exp`. Role-to-permission expansion uses
+        `config/rbac/role-permission-matrix.yaml`.
+    OAuth2ClientCredentials:
+      type: oauth2
+      description: Machine-to-machine client credentials flow for service accounts.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills
+            skills:write: Create/update skills
+            skills:delete: Delete skills
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create/update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+  parameters:
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but lacking required tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+security:
+  - OAuth2Bearer: []
