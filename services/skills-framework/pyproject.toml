@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asiwdp-skills-framework"
+version = "0.1.0"
+description = "Versioned CRUD APIs and bulk import/export for ASIWDP skills taxonomy"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "ASIWDP Platform Team" }]
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "jsonschema>=4.21.0",
+    "python-multipart>=0.0.9",
+    "psycopg[binary]>=3.1.0",
+]
+# Install sibling packages when enabling JWT middleware:
+#   pip install -e "libs/auth-middleware[dev]"
+#   pip install -e "libs/skills-persistence[dev]"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.27.0",
+    "openapi-spec-validator>=0.7.0",
+    "PyYAML>=6.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+asiwdp_skills_framework = ["py.typed", "json_schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
