@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.local/contracts/ingestion/v1/learning-content.schema.json",
+  "title": "LearningContentIngestion",
+  "description": "LMS / third-party learning content catalog ingestion (contract learning-content/v1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tenantId",
+    "sourceSystem",
+    "sourceRecordId",
+    "idempotencyKey",
+    "capturedAt",
+    "consent",
+    "content"
+  ],
+  "properties": {
+    "tenantId": { "$ref": "defs.schema.json#/$defs/uuid" },
+    "sourceSystem": { "$ref": "defs.schema.json#/$defs/shortString" },
+    "sourceRecordId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "idempotencyKey": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "capturedAt": { "$ref": "defs.schema.json#/$defs/dateTime" },
+    "consent": { "$ref": "defs.schema.json#/$defs/consentMetadata" },
+    "correlationId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentId", "title", "contentType", "status", "locale"],
+      "properties": {
+        "contentId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "description": { "type": "string", "maxLength": 8000 },
+        "contentType": {
+          "type": "string",
+          "enum": ["course", "module", "video", "article", "assessment", "path"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["published", "draft", "archived", "retired"]
+        },
+        "locale": { "$ref": "defs.schema.json#/$defs/locale" },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "provider": { "type": "string", "maxLength": 256 },
+        "url": { "type": "string", "format": "uri", "maxLength": 2048 },
+        "skillIds": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "defs.schema.json#/$defs/uuid" },
+          "uniqueItems": true
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

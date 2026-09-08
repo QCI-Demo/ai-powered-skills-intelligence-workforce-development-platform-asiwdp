@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.local/contracts/ingestion/v1/learner-activity.schema.json",
+  "title": "LearnerActivityIngestion",
+  "description": "Learner activity / progress event ingestion (contract learner-activity/v1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tenantId",
+    "sourceSystem",
+    "sourceRecordId",
+    "idempotencyKey",
+    "capturedAt",
+    "consent",
+    "activity"
+  ],
+  "properties": {
+    "tenantId": { "$ref": "defs.schema.json#/$defs/uuid" },
+    "sourceSystem": { "$ref": "defs.schema.json#/$defs/shortString" },
+    "sourceRecordId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "idempotencyKey": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "capturedAt": { "$ref": "defs.schema.json#/$defs/dateTime" },
+    "consent": { "$ref": "defs.schema.json#/$defs/consentMetadata" },
+    "correlationId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalEmployeeId",
+        "contentId",
+        "activityType",
+        "occurredAt",
+        "status"
+      ],
+      "properties": {
+        "externalEmployeeId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+        "contentId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+        "activityType": {
+          "type": "string",
+          "enum": [
+            "enrolled",
+            "started",
+            "progressed",
+            "completed",
+            "failed",
+            "abandoned"
+          ]
+        },
+        "occurredAt": { "$ref": "defs.schema.json#/$defs/dateTime" },
+        "status": {
+          "type": "string",
+          "enum": ["in_progress", "completed", "failed", "not_started"]
+        },
+        "progressPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "timeSpentSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31536000
+        },
+        "completionDate": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

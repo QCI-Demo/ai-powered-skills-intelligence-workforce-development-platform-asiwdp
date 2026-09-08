@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.local/contracts/ingestion/v1/employee.schema.json",
+  "title": "EmployeeIngestion",
+  "description": "HRIS employee master-data ingestion payload (contract employee/v1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tenantId",
+    "sourceSystem",
+    "sourceRecordId",
+    "idempotencyKey",
+    "capturedAt",
+    "consent",
+    "employee"
+  ],
+  "properties": {
+    "tenantId": { "$ref": "defs.schema.json#/$defs/uuid" },
+    "sourceSystem": { "$ref": "defs.schema.json#/$defs/shortString" },
+    "sourceRecordId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "idempotencyKey": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "capturedAt": { "$ref": "defs.schema.json#/$defs/dateTime" },
+    "consent": { "$ref": "defs.schema.json#/$defs/consentMetadata" },
+    "correlationId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "employee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["externalEmployeeId", "workEmail", "employmentStatus", "hireDate"],
+      "properties": {
+        "externalEmployeeId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+        "workEmail": { "$ref": "defs.schema.json#/$defs/email" },
+        "preferredName": { "type": "string", "maxLength": 256 },
+        "jobTitle": { "type": "string", "maxLength": 256 },
+        "department": { "type": "string", "maxLength": 256 },
+        "managerExternalId": { "type": "string", "maxLength": 512 },
+        "locationCode": { "type": "string", "maxLength": 64 },
+        "employmentStatus": {
+          "type": "string",
+          "enum": ["active", "inactive", "leave", "terminated"]
+        },
+        "hireDate": { "type": "string", "format": "date" },
+        "terminationDate": { "type": "string", "format": "date" },
+        "locale": { "$ref": "defs.schema.json#/$defs/locale" },
+        "roleCodes": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "defs.schema.json#/$defs/shortString" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}
