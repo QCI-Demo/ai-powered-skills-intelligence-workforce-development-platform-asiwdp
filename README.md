@@ -15,8 +15,20 @@ supporting RBAC / OpenAPI artifacts for story
 | Role → permission matrix | [`config/rbac/role-permission-matrix.yaml`](config/rbac/role-permission-matrix.yaml) |
 | Middleware package | [`libs/auth-middleware/`](libs/auth-middleware/) |
 | Service OpenAPI specs | [`openapi/`](openapi/) |
+| API portal staging | [`openapi/portal/`](openapi/portal/) |
 
-### Install & test
+## Skills Framework OpenAPI
+
+Versioned CRUD, bulk import/export, taxonomy version header, and tenant
+security scopes live in
+[`openapi/skills-framework-service.yaml`](openapi/skills-framework-service.yaml).
+
+```bash
+pip install "openapi-spec-validator>=0.7.0" PyYAML
+./scripts/validate_and_publish_openapi.sh
+```
+
+### Install & test (auth middleware)
 
 ```bash
 pip install -e "libs/auth-middleware[dev]"
