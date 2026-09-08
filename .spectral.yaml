@@ -1,0 +1,9 @@
+# Spectral ruleset for ASIWDP OpenAPI specs
+extends: ["spectral:oas"]
+rules:
+  operation-tag-defined: true
+  oas3-api-servers: true
+  info-contact: off
+  info-description: true
+  operation-description: warn
+  operation-operationId: warn

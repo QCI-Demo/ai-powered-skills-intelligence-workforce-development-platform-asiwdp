@@ -1,0 +1,8 @@
+{
+  "name": "asiwdp-openapi-lint",
+  "private": true,
+  "description": "Local Spectral CLI for ASIWDP OpenAPI linting",
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.15.0"
+  }
+}
