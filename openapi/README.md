@@ -1,10 +1,13 @@
 # ASIWDP OpenAPI Specifications
 
+Canonical platform auth contract: [`../openapi.yaml`](../openapi.yaml).
+
 Service OpenAPI documents with OAuth2 Bearer JWT security schemes and
 tenant-scoped RBAC scope annotations.
 
 | File | Service |
 |------|---------|
+| `../openapi.yaml` | Platform auth & RBAC contract |
 | `skills-framework-service.yaml` | Skills & competencies |
 | `recommendation-engine-service.yaml` | AI recommendations |
 | `learning-path-service.yaml` | Learning paths |

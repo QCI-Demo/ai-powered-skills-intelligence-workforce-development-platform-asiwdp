@@ -32,6 +32,7 @@ async def list_skills(request):
 - Validates Bearer JWTs (signature, issuer, audience, expiry)
 - Extracts `tenant_id`, `roles`, `scopes` (camelCase aliases supported)
 - Expands roles via the shared RBAC YAML matrix
+- Enforces optional `X-Tenant-ID` header against token tenant (403 on mismatch)
 - Aborts with 401 / 403 on authn / authz failure
 - Never logs raw tokens
 

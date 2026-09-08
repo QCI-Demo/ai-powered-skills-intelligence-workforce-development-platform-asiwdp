@@ -11,7 +11,9 @@ supporting RBAC / OpenAPI artifacts for story
 
 | Artifact | Path |
 |----------|------|
+| Platform OpenAPI contract | [`openapi.yaml`](openapi.yaml) |
 | JWT claim schema & RBAC design | [`docs/design/jwt-claim-schema-and-rbac.md`](docs/design/jwt-claim-schema-and-rbac.md) |
+| JWT claims JSON Schema | [`schemas/jwt-access-token-claims.schema.json`](schemas/jwt-access-token-claims.schema.json) |
 | Role → permission matrix | [`config/rbac/role-permission-matrix.yaml`](config/rbac/role-permission-matrix.yaml) |
 | Middleware package | [`libs/auth-middleware/`](libs/auth-middleware/) |
 | Service OpenAPI specs | [`openapi/`](openapi/) |

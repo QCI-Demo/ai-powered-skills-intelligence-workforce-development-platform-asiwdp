@@ -17,6 +17,8 @@ class AuthConfig:
     algorithm: str = "HS256"
     leeway_seconds: int = 60
     require_tenant: bool = True
+    # When True, if X-Tenant-ID (or X-Tenant-Id) is present it must match token tenant
+    enforce_tenant_header: bool = True
     # Paths that skip authentication (health, docs, openapi)
     public_paths: tuple[str, ...] = (
         "/health",
@@ -56,6 +58,12 @@ class AuthConfig:
             os.environ.get(f"{prefix}REQUIRE_TENANT", "true").strip().lower()
             not in {"0", "false", "no"}
         )
+        enforce_tenant_header = (
+            os.environ.get(f"{prefix}ENFORCE_TENANT_HEADER", "true")
+            .strip()
+            .lower()
+            not in {"0", "false", "no"}
+        )
         public_raw = os.environ.get(f"{prefix}PUBLIC_PATHS", "").strip()
 
         if not issuer:
@@ -87,5 +95,6 @@ class AuthConfig:
             algorithm=algorithm,
             leeway_seconds=leeway,
             require_tenant=require_tenant,
+            enforce_tenant_header=enforce_tenant_header,
             public_paths=public_paths,
         )

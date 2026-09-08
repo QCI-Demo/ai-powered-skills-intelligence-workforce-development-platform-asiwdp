@@ -13,7 +13,7 @@ from asiwdp_auth.errors import (
 )
 from asiwdp_auth.jwt_verifier import JwtVerifier
 from asiwdp_auth.middleware import AuthMiddleware, require_permission
-from asiwdp_auth.rbac import RbacPolicy
+from asiwdp_auth.rbac import RbacPolicy, permission_satisfies
 
 __all__ = [
     "AccessTokenClaims",
@@ -28,6 +28,7 @@ __all__ = [
     "TokenExpiredError",
     "TokenInvalidError",
     "TokenMissingError",
+    "permission_satisfies",
     "require_permission",
 ]
 

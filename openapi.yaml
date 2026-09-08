@@ -1,0 +1,465 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Platform Authentication & Tenant-Scoped RBAC Contract
+  version: 1.0.0
+  description: |
+    Machine-readable API contract for OAuth2/JWT authentication and
+    tenant-scoped RBAC across the AI-Powered Skills Intelligence & Workforce
+    Development Platform (ASIWDP).
+
+    This document is the canonical security contract consumed by protected
+    micro-services via the reusable `asiwdp-auth` middleware
+    (`libs/auth-middleware`). Service-specific OpenAPI files under `openapi/`
+    `$ref` the same security scheme patterns and role-based scopes.
+
+    **Claim schema design:** `docs/design/jwt-claim-schema-and-rbac.md`  
+    **JSON Schema:** `schemas/jwt-access-token-claims.schema.json`  
+    **RBAC matrix:** `config/rbac/role-permission-matrix.yaml`
+
+    ## HTTP outcomes
+    | Condition | Status |
+    |-----------|--------|
+    | Missing / malformed Authorization | 401 |
+    | Invalid / tampered signature | 401 |
+    | Expired token | 401 |
+    | Missing required claims | 401 |
+    | Authenticated but permission denied | 403 |
+  contact:
+    name: ASIWDP Platform Team
+  license:
+    name: Proprietary
+servers:
+  - url: https://api.asiwdp.example
+    description: Platform API gateway (illustrative)
+  - url: /api/v1
+    description: Relative service base
+tags:
+  - name: AuthContext
+    description: Authenticated principal and tenant context
+  - name: Health
+    description: Unauthenticated probes
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Public endpoint; authentication is not required.
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      tags: [AuthContext]
+      summary: Resolve authenticated principal
+      description: |
+        Returns the resolved principal for the caller’s Bearer JWT after
+        signature verification and RBAC permission expansion.
+        Requires a valid access token with `tenant_id`, `roles`, and `scopes`.
+        Raw token claims conform to `AccessTokenClaims`.
+      operationId: getAuthMe
+      parameters:
+        - $ref: "#/components/parameters/TenantIdHeader"
+      security:
+        - OAuth2Bearer: []
+        - OAuth2AuthorizationCode: []
+      responses:
+        "200":
+          description: Authenticated principal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Principal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /auth/token/claims:
+    get:
+      tags: [AuthContext]
+      summary: Inspect normalized access-token claims
+      description: |
+        Returns the normalized claim set extracted from the Bearer JWT
+        (without expanding RBAC). Useful for debugging claim shape against
+        `schemas/jwt-access-token-claims.schema.json`.
+      operationId: getAuthTokenClaims
+      parameters:
+        - $ref: "#/components/parameters/TenantIdHeader"
+      security:
+        - OAuth2Bearer: []
+        - OAuth2AuthorizationCode: []
+      responses:
+        "200":
+          description: Normalized access-token claims
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessTokenClaims"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /auth/authorize:
+    post:
+      tags: [AuthContext]
+      summary: Evaluate a permission check for the current principal
+      description: |
+        Utility contract used by gateways and services to ask whether the
+        current token grants one or more permissions within the token tenant.
+      operationId: postAuthAuthorize
+      security:
+        - OAuth2Bearer: []
+        - OAuth2AuthorizationCode: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorizeRequest"
+      responses:
+        "200":
+          description: Authorization decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 access token encoded as a JWT (RS256 in production).
+        Required claims: `sub`, `tenant_id` (or `tenantId`), `roles`, `scopes`
+        (or `scope`), `iss`, `aud`, `iat`, `exp`.
+    OAuth2AuthorizationCode:
+      type: oauth2
+      description: Interactive user login (authorization code + PKCE).
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.asiwdp.example/oauth/authorize
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills
+            skills:write: Create or update skills
+            skills:delete: Delete skills
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create or update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+            recommendations:read: Read recommendations
+            recommendations:generate: Generate recommendations
+            recommendations:admin: Administer recommendation engine
+            learning_paths:read: Read learning paths
+            learning_paths:write: Create or update learning paths
+            learning_paths:assign: Assign learning paths
+            learning_paths:delete: Delete learning paths
+            learning_paths:admin: Full learning-path administration
+            progress:read: Read progress
+            progress:write: Write progress
+            progress:admin: Administer progress
+            analytics:read: Read analytics
+            analytics:export: Export analytics
+            analytics:admin: Administer analytics
+            tenants:read: Read tenant profile
+            tenants:write: Update tenant settings
+            tenants:delete: Delete tenant resources
+            tenants:admin: Full tenant administration
+            users:read: Read users
+            users:write: Create or update users
+            users:delete: Delete users
+            users:admin: Full user administration
+            organizations:read: Read organizations
+            organizations:write: Create or update organizations
+            organizations:delete: Delete organizations
+            organizations:admin: Full organization administration
+            roles:read: Read roles
+            roles:write: Manage role assignments
+            roles:admin: Full role administration
+            consent:read: Read consent records
+            consent:write: Create or update consent
+            consent:admin: Administer consent
+            usage:read: Read usage events
+            usage:write: Emit usage events
+            usage:admin: Administer usage metering
+    OAuth2ClientCredentials:
+      type: oauth2
+      description: Machine-to-machine client credentials for service accounts.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills
+            competencies:read: Read competencies
+            recommendations:generate: Generate recommendations
+            learning_paths:read: Read learning paths
+            progress:read: Read progress
+            progress:write: Write progress
+            usage:write: Emit usage events
+            consent:read: Read consent records
+  parameters:
+    TenantIdHeader:
+      name: X-Tenant-Id
+      in: header
+      required: false
+      description: |
+        Optional echo of the active tenant. When present, must match the
+        token `tenant_id` claim or the request is rejected with 403.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing, expired, tampered, or otherwise invalid JWT
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          description: Always `Bearer` for authentication failures
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            token_missing:
+              value:
+                error: token_missing
+                message: Missing Authorization header
+            token_expired:
+              value:
+                error: token_expired
+                message: Access token has expired
+            token_invalid:
+              value:
+                error: token_invalid
+                message: Access token signature is invalid
+            claims_invalid:
+              value:
+                error: claims_invalid
+                message: Missing required 'tenant_id' claim
+    Forbidden:
+      description: Authenticated principal lacks required tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            forbidden:
+              value:
+                error: forbidden
+                message: "Missing required permission(s): skills:write"
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [up, down]
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - token_missing
+            - token_invalid
+            - token_expired
+            - claims_invalid
+            - unauthenticated
+            - forbidden
+            - internal_error
+        message:
+          type: string
+          description: Human-readable explanation (never includes secrets)
+    AccessTokenClaims:
+      type: object
+      description: Canonical ASIWDP JWT access-token claims (snake_case).
+      required:
+        - sub
+        - tenant_id
+        - iat
+        - exp
+        - iss
+        - aud
+        - roles
+        - scopes
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: Subject (user or service principal ID)
+        tenant_id:
+          type: string
+          format: uuid
+          description: Tenant boundary for data isolation
+        session_id:
+          type: string
+          format: uuid
+        iat:
+          type: integer
+          format: int64
+          description: Issued-at (epoch seconds)
+        exp:
+          type: integer
+          format: int64
+          description: Expiration (epoch seconds)
+        iss:
+          type: string
+          format: uri
+        aud:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+              minItems: 1
+        actor_type:
+          type: string
+          enum: [user, service, system]
+          default: user
+        org_id:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - platform_admin
+              - tenant_admin
+              - org_admin
+              - skills_manager
+              - learning_designer
+              - analyst
+              - manager
+              - learner
+              - service_account
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+            pattern: '^([a-z_]+:[a-z_]+|\*)$'
+          description: OAuth2 scopes / permission keys (`resource:action`)
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Optional explicit effective permissions
+        jti:
+          type: string
+        azp:
+          type: string
+          description: Authorized party (OAuth client ID)
+      additionalProperties: true
+      example:
+        sub: "11111111-1111-1111-1111-111111111111"
+        tenant_id: "22222222-2222-2222-2222-222222222222"
+        session_id: "33333333-3333-3333-3333-333333333333"
+        iat: 1786450800
+        exp: 1786454400
+        iss: "https://auth.asiwdp.example/"
+        aud: asiwdp-api
+        actor_type: user
+        roles: [skills_manager, learner]
+        scopes:
+          - skills:read
+          - skills:write
+          - competencies:read
+          - learning_paths:read
+          - progress:read
+          - progress:write
+        jti: tok_01HXYZEXAMPLE
+    Principal:
+      type: object
+      required:
+        - subject
+        - tenant_id
+        - roles
+        - scopes
+        - effective_permissions
+        - actor_type
+      properties:
+        subject:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        effective_permissions:
+          type: array
+          items:
+            type: string
+          description: >
+            Union of token scopes, explicit permissions, and role-expanded
+            permissions from the RBAC matrix.
+        actor_type:
+          type: string
+          enum: [user, service, system]
+        session_id:
+          type: string
+          format: uuid
+          nullable: true
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+    AuthorizeRequest:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            description: Permission key (`resource:action`)
+        require_all:
+          type: boolean
+          default: true
+          description: When true, all listed permissions are required.
+        tenant_id:
+          type: string
+          format: uuid
+          description: Optional tenant echo; must match token tenant when set.
+    AuthorizeResponse:
+      type: object
+      required: [allowed, tenant_id, subject]
+      properties:
+        allowed:
+          type: boolean
+        subject:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        missing_permissions:
+          type: array
+          items:
+            type: string
+security:
+  - OAuth2Bearer: []
+  - OAuth2AuthorizationCode: []
