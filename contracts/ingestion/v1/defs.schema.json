@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.local/contracts/ingestion/v1/defs.schema.json",
+  "title": "ASIWDP Ingestion Shared Definitions",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "RFC 4122 UUID"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "shortString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "maxLength": 320
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "description": "BCP 47 language tag (simplified)"
+    },
+    "consentMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "lawfulBasis", "capturedAt", "version"],
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "skills_intelligence",
+            "learning_recommendation",
+            "workforce_analytics",
+            "compliance_reporting"
+          ]
+        },
+        "lawfulBasis": {
+          "type": "string",
+          "enum": [
+            "consent",
+            "contract",
+            "legitimate_interest",
+            "legal_obligation"
+          ]
+        },
+        "capturedAt": { "$ref": "#/$defs/dateTime" },
+        "version": { "$ref": "#/$defs/shortString" },
+        "expiresAt": { "$ref": "#/$defs/dateTime" },
+        "dataSubjectId": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "ingestionEnvelope": {
+      "type": "object",
+      "required": [
+        "tenantId",
+        "sourceSystem",
+        "sourceRecordId",
+        "idempotencyKey",
+        "capturedAt",
+        "consent"
+      ],
+      "properties": {
+        "tenantId": { "$ref": "#/$defs/uuid" },
+        "sourceSystem": { "$ref": "#/$defs/shortString" },
+        "sourceRecordId": { "$ref": "#/$defs/nonEmptyString" },
+        "idempotencyKey": { "$ref": "#/$defs/nonEmptyString" },
+        "capturedAt": { "$ref": "#/$defs/dateTime" },
+        "consent": { "$ref": "#/$defs/consentMetadata" },
+        "correlationId": { "$ref": "#/$defs/nonEmptyString" },
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0.0"
+        }
+      }
+    }
+  }
+}

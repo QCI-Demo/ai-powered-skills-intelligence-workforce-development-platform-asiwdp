@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.local/contracts/ingestion/v1/role.schema.json",
+  "title": "RoleIngestion",
+  "description": "Job/role definition ingestion payload (contract role/v1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tenantId",
+    "sourceSystem",
+    "sourceRecordId",
+    "idempotencyKey",
+    "capturedAt",
+    "consent",
+    "role"
+  ],
+  "properties": {
+    "tenantId": { "$ref": "defs.schema.json#/$defs/uuid" },
+    "sourceSystem": { "$ref": "defs.schema.json#/$defs/shortString" },
+    "sourceRecordId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "idempotencyKey": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "capturedAt": { "$ref": "defs.schema.json#/$defs/dateTime" },
+    "consent": { "$ref": "defs.schema.json#/$defs/consentMetadata" },
+    "correlationId": { "$ref": "defs.schema.json#/$defs/nonEmptyString" },
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roleCode", "title", "status"],
+      "properties": {
+        "roleCode": { "$ref": "defs.schema.json#/$defs/shortString" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "description": { "type": "string", "maxLength": 4000 },
+        "family": { "type": "string", "maxLength": 128 },
+        "level": {
+          "type": "string",
+          "enum": ["entry", "mid", "senior", "lead", "executive"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "deprecated", "draft"]
+        },
+        "requiredSkillIds": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "defs.schema.json#/$defs/uuid" },
+          "uniqueItems": true
+        },
+        "optionalSkillIds": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "defs.schema.json#/$defs/uuid" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}
