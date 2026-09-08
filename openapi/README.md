@@ -11,7 +11,9 @@ tenant-scoped RBAC scope annotations.
 | `progress-tracking-service.yaml` | Progress tracking |
 | `analytics-insights-service.yaml` | Analytics & insights |
 | `tenant-admin-service.yaml` | Tenant / org / user admin |
+| `personal-data-consent-service.yaml` | Consent + personal skill ingestion |
 
 All protected operations declare `security` referencing `OAuth2Bearer` and
 document required scopes (e.g. `skills:write`). Claim schema:
-`docs/design/jwt-claim-schema-and-rbac.md`.
+`docs/design/jwt-claim-schema-and-rbac.md`. Consent-aware ingestion:
+`docs/design/consent-aware-personal-data-ingestion.md`.

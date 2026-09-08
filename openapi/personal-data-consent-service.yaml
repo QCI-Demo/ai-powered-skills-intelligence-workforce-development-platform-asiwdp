@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Personal Data & Consent Service
+  version: 1.0.0
+  description: |
+    Consent recording and consent-aware personal skill data ingestion.
+
+    Mutating personal-skill endpoints query ConsentService before persistence.
+    Requests without a valid consent grant for purpose
+    `personal_skill_data_processing` are rejected with **422 Unprocessable Entity**.
+
+    Authentication / RBAC is enforced by the shared `asiwdp-auth` middleware
+    (`consent:read` / `consent:write`). See
+    `docs/design/consent-aware-personal-data-ingestion.md`.
+servers:
+  - url: /api/v1
+tags:
+  - name: Consent
+  - name: PersonalSkills
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /consent:
+    post:
+      tags: [Consent]
+      summary: Record a consent grant
+      description: Requires `consent:write`.
+      security:
+        - OAuth2Bearer: [consent:write]
+      responses:
+        "201":
+          description: Consent recorded
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /consent/{subjectId}:
+    get:
+      tags: [Consent]
+      summary: List consent records for a subject in the caller's tenant
+      description: Requires `consent:read`.
+      security:
+        - OAuth2Bearer: [consent:read]
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      responses:
+        "200":
+          description: Consent list
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /personal-skills:
+    post:
+      tags: [PersonalSkills]
+      summary: Ingest a personal skill / proficiency record
+      description: |
+        Requires authenticated access. Pre-processing queries ConsentService for
+        a valid `personal_skill_data_processing` grant for the subject. Returns
+        **422** when consent is missing, revoked, or expired.
+      security:
+        - OAuth2Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalSkillIngestRequest"
+      responses:
+        "201":
+          description: Personal skill record persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalSkillRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Valid consent missing for personal skill data processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentMissingError"
+  /personal-skills/batch:
+    post:
+      tags: [PersonalSkills]
+      summary: Batch-ingest personal skill records for one subject
+      description: |
+        Consent is verified once before any row is persisted. Missing consent
+        yields **422** and a no-op write set.
+      security:
+        - OAuth2Bearer: []
+      responses:
+        "201":
+          description: Batch ingested
+        "422":
+          description: Valid consent missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentMissingError"
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 access token (JWT). Required claims include `tenant_id`. Consent
+        endpoints additionally require `consent:read` / `consent:write`.
+  parameters:
+    SubjectId:
+      name: subjectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but lacking required tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+    ConsentMissingError:
+      type: object
+      required: [error, message, purpose, subject_id, tenant_id]
+      properties:
+        error:
+          type: string
+          enum: [consent_missing]
+        message:
+          type: string
+        purpose:
+          type: string
+          example: personal_skill_data_processing
+        subject_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+    PersonalSkillIngestRequest:
+      type: object
+      required: [subject_id, skill_code, proficiency_level]
+      properties:
+        subject_id:
+          type: string
+          format: uuid
+        skill_code:
+          type: string
+        proficiency_level:
+          type: integer
+          minimum: 0
+        evidence:
+          type: string
+          nullable: true
+    PersonalSkillRecord:
+      type: object
+      required: [id, skill_code, consent_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        skill_code:
+          type: string
+        consent_id:
+          type: string
+          format: uuid
+security:
+  - OAuth2Bearer: []
