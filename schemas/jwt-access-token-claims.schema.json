@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asiwdp.example/schemas/jwt-access-token-claims.schema.json",
+  "title": "ASIWDP JWT Access Token Claims",
+  "description": "Canonical claim structure for OAuth2 Bearer JWTs used by asiwdp-auth middleware. Snake_case is canonical; camelCase aliases (tenantId, sessionId, actorType, orgId) are accepted and normalized.",
+  "type": "object",
+  "required": ["sub", "tenant_id", "iat", "exp", "iss", "aud", "roles", "scopes"],
+  "properties": {
+    "sub": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Subject / user or service principal ID (UUID)"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tenant boundary for data isolation (UUID). Alias: tenantId"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "CamelCase alias for tenant_id"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Authenticated session identifier. Alias: sessionId"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "iat": {
+      "type": "integer",
+      "description": "Issued-at epoch seconds"
+    },
+    "exp": {
+      "type": "integer",
+      "description": "Expiration epoch seconds"
+    },
+    "iss": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Token issuer URI"
+    },
+    "aud": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      ],
+      "description": "Intended audience (e.g. asiwdp-api)"
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "platform_admin",
+          "tenant_admin",
+          "org_admin",
+          "skills_manager",
+          "learning_designer",
+          "analyst",
+          "manager",
+          "learner",
+          "service_account"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Tenant-scoped role names"
+    },
+    "scopes": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^([a-z_]+:[a-z_]+|\\*)$"
+          }
+        },
+        {
+          "type": "string",
+          "description": "Space-delimited OAuth2 scope string (alias via scope claim)"
+        }
+      ],
+      "description": "OAuth2 scopes / permission keys (resource:action)"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Space-delimited OAuth2 scope string alias for scopes"
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Optional explicit effective permissions"
+    },
+    "org_id": {
+      "type": "string",
+      "description": "Optional organization scope within the tenant. Alias: orgId"
+    },
+    "orgId": {
+      "type": "string"
+    },
+    "actor_type": {
+      "type": "string",
+      "enum": ["user", "service", "system"],
+      "default": "user",
+      "description": "Alias: actorType"
+    },
+    "actorType": {
+      "type": "string",
+      "enum": ["user", "service", "system"]
+    },
+    "jti": {
+      "type": "string",
+      "description": "Unique token ID for replay protection / audit"
+    },
+    "azp": {
+      "type": "string",
+      "description": "Authorized party (OAuth client ID)"
+    }
+  },
+  "additionalProperties": true,
+  "examples": [
+    {
+      "sub": "11111111-1111-1111-1111-111111111111",
+      "tenant_id": "22222222-2222-2222-2222-222222222222",
+      "session_id": "33333333-3333-3333-3333-333333333333",
+      "iat": 1786450800,
+      "exp": 1786454400,
+      "iss": "https://auth.asiwdp.example/",
+      "aud": "asiwdp-api",
+      "actor_type": "user",
+      "org_id": "44444444-4444-4444-4444-444444444444",
+      "roles": ["skills_manager", "learner"],
+      "scopes": [
+        "skills:read",
+        "skills:write",
+        "competencies:read",
+        "learning_paths:read",
+        "progress:read",
+        "progress:write"
+      ],
+      "jti": "tok_01HXYZEXAMPLE"
+    }
+  ]
+}
