@@ -1,19 +1,31 @@
 openapi: 3.0.3
 info:
   title: ASIWDP Skills Framework Service
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    Skills and competency management APIs for the ASIWDP platform.
+    Versioned skills taxonomy APIs for the ASIWDP platform.
+
+    Provides CRUD, search, retire, bulk CSV/JSON import with row-level
+    validation reports, and streaming taxonomy export (current or historic).
 
     ## Security
     All endpoints (except health) require an OAuth2 Bearer JWT issued by the
     platform identity service. Tokens must include `tenant_id`, `roles`, and
     `scopes`. Tenant-scoped RBAC is enforced by the shared `asiwdp-auth`
     middleware. See `docs/design/jwt-claim-schema-and-rbac.md`.
+
+    ## Versioning
+    Taxonomy revision is selected via the `X-Taxonomy-Version` header (default 1)
+    and optionally overridden by `version` query/form parameters on list/search/
+    import/export operations. The `version` field is persisted on every entity
+    and returned in responses.
 servers:
   - url: /api/v1
 tags:
   - name: Skills
+  - name: Categories
+  - name: Proficiencies
+  - name: Taxonomy
   - name: Competencies
   - name: Health
 paths:
@@ -21,20 +33,46 @@ paths:
     get:
       tags: [Health]
       summary: Liveness probe
+      description: Service liveness probe (unauthenticated).
+      operationId: healthCheck
       security: []
       responses:
         "200":
           description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
   /skills:
     get:
       tags: [Skills]
       summary: List skills in the caller's tenant
       description: Requires scope/permission `skills:read`.
+      operationId: listSkills
       security:
         - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - name: category
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
       responses:
         "200":
           description: Skill list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSkills"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -42,48 +80,562 @@ paths:
     post:
       tags: [Skills]
       summary: Create a skill
-      description: Requires scope/permission `skills:write`.
+      description: Requires scope/permission `skills:write`. Persists and returns `version`.
+      operationId: createSkill
       security:
         - OAuth2Bearer: [skills:write]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillCreate"
       responses:
         "201":
           description: Skill created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /skills/search:
+    get:
+      tags: [Skills]
+      summary: Search skills
+      description: Search skills by name or code within the tenant. Requires `skills:read`.
+      operationId: searchSkills
+      security:
+        - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSkills"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /skills/{skillId}:
     parameters:
       - $ref: "#/components/parameters/SkillId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
     get:
       tags: [Skills]
       summary: Get skill by ID
+      description: Get skill by ID within the caller tenant.
+      operationId: getSkill
       security:
         - OAuth2Bearer: [skills:read]
       responses:
         "200":
           description: Skill detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-    delete:
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
       tags: [Skills]
-      summary: Delete a skill
-      description: Requires `skills:delete` or `skills:admin`.
+      summary: Update a skill
+      description: Update skill fields within the caller tenant. Requires `skills:write`.
+      operationId: updateSkill
       security:
-        - OAuth2Bearer: [skills:delete]
+        - OAuth2Bearer: [skills:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillUpdate"
       responses:
-        "204":
-          description: Deleted
+        "200":
+          description: Updated skill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /skills/{skillId}/retire:
+    parameters:
+      - $ref: "#/components/parameters/SkillId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
+    post:
+      tags: [Skills]
+      summary: Retire (deprecate) a skill
+      description: Soft-deprecate a skill (status → deprecated). Requires `skills:write`.
+      operationId: retireSkill
+      security:
+        - OAuth2Bearer: [skills:write]
+      responses:
+        "200":
+          description: Skill retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      description: List categories in the caller's tenant. Requires `skills:read`.
+      operationId: listCategories
+      security:
+        - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCategories"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Categories]
+      summary: Create a category
+      description: Create a category. Requires `skills:write`. Persists and returns `version`.
+      operationId: createCategory
+      security:
+        - OAuth2Bearer: [skills:write]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryCreate"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /categories/search:
+    get:
+      tags: [Categories]
+      summary: Search categories
+      description: Search categories by name or code. Requires `skills:read`.
+      operationId: searchCategories
+      security:
+        - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCategories"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /categories/{categoryId}:
+    parameters:
+      - $ref: "#/components/parameters/CategoryId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
+    get:
+      tags: [Categories]
+      summary: Get category by ID
+      description: Get category by ID within the caller tenant.
+      operationId: getCategory
+      security:
+        - OAuth2Bearer: [skills:read]
+      responses:
+        "200":
+          description: Category detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Categories]
+      summary: Update a category
+      description: Update a category. Requires `skills:write`.
+      operationId: updateCategory
+      security:
+        - OAuth2Bearer: [skills:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /categories/{categoryId}/retire:
+    parameters:
+      - $ref: "#/components/parameters/CategoryId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
+    post:
+      tags: [Categories]
+      summary: Retire (deprecate) a category
+      description: Retire (soft-deprecate) a category. Requires `skills:write`.
+      operationId: retireCategory
+      security:
+        - OAuth2Bearer: [skills:write]
+      responses:
+        "200":
+          description: Category retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /proficiencies:
+    get:
+      tags: [Proficiencies]
+      summary: List proficiency levels
+      description: List proficiency levels in the caller's tenant. Requires `skills:read`.
+      operationId: listProficiencies
+      security:
+        - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Proficiency list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedProficiencies"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Proficiencies]
+      summary: Create a proficiency level
+      description: Create a proficiency level. Requires `skills:write`. Persists and returns `version`.
+      operationId: createProficiency
+      security:
+        - OAuth2Bearer: [skills:write]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProficiencyCreate"
+      responses:
+        "201":
+          description: Proficiency created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proficiency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /proficiencies/search:
+    get:
+      tags: [Proficiencies]
+      summary: Search proficiency levels
+      description: Search proficiency levels by name or code. Requires `skills:read`.
+      operationId: searchProficiencies
+      security:
+        - OAuth2Bearer: [skills:read]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/VersionQuery"
+        - $ref: "#/components/parameters/StatusQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedProficiencies"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /proficiencies/{proficiencyId}:
+    parameters:
+      - $ref: "#/components/parameters/ProficiencyId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
+    get:
+      tags: [Proficiencies]
+      summary: Get proficiency by ID
+      description: Get proficiency level by ID within the caller tenant.
+      operationId: getProficiency
+      security:
+        - OAuth2Bearer: [skills:read]
+      responses:
+        "200":
+          description: Proficiency detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proficiency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Proficiencies]
+      summary: Update a proficiency level
+      description: Update a proficiency level. Requires `skills:write`.
+      operationId: updateProficiency
+      security:
+        - OAuth2Bearer: [skills:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProficiencyUpdate"
+      responses:
+        "200":
+          description: Updated proficiency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proficiency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /proficiencies/{proficiencyId}/retire:
+    parameters:
+      - $ref: "#/components/parameters/ProficiencyId"
+      - $ref: "#/components/parameters/TaxonomyVersionHeader"
+    post:
+      tags: [Proficiencies]
+      summary: Retire (deprecate) a proficiency level
+      description: Retire (soft-deprecate) a proficiency level. Requires `skills:write`.
+      operationId: retireProficiency
+      security:
+        - OAuth2Bearer: [skills:write]
+      responses:
+        "200":
+          description: Proficiency retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proficiency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /taxonomy/import:
+    post:
+      tags: [Taxonomy]
+      summary: Bulk import taxonomy rows (CSV/JSON)
+      description: |
+        Parses an uploaded CSV or JSON/NDJSON file line-by-line, validates each
+        row (tenant_id, version, required attributes), persists successes,
+        writes per-row audit entries, and returns a detailed import report.
+        Requires `skills:write`.
+      operationId: importTaxonomy
+      security:
+        - OAuth2Bearer: [skills:write]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, entity_type]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                entity_type:
+                  type: string
+                  enum: [skill, category, proficiency]
+                format:
+                  type: string
+                  enum: [csv, json, ndjson]
+                  default: csv
+                version:
+                  type: integer
+                  minimum: 1
+      responses:
+        "200":
+          description: Import report with counts and row-level errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /taxonomy/export:
+    get:
+      tags: [Taxonomy]
+      summary: Stream current or historic taxonomy snapshot
+      description: |
+        Streams taxonomy data filtered by `tenant_id` and `version`. Format is
+        negotiated via the `Accept` header (`application/json` or `text/csv`)
+        or the `format` query parameter. Requires `skills:read` (or
+        `analytics:export` for analysts).
+      operationId: exportTaxonomy
+      security:
+        - OAuth2Bearer: [skills:read]
+        - OAuth2Bearer: [analytics:export]
+      parameters:
+        - $ref: "#/components/parameters/TaxonomyVersionHeader"
+        - name: tenant_id
+          in: query
+          description: Must match the authenticated tenant when provided
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: query
+          description: Taxonomy version (historic snapshot); defaults to header
+          schema:
+            type: integer
+            minimum: 1
+        - name: format
+          in: query
+          description: Explicit format override for Accept negotiation
+          schema:
+            type: string
+            enum: [json, csv]
+        - name: Accept
+          in: header
+          description: application/json or text/csv
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Streaming taxonomy export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxonomyExport"
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "406":
+          description: Unsupported Accept / format
+
   /competencies:
     get:
       tags: [Competencies]
       summary: List competencies
+      description: List competency requirements. Requires `competencies:read`.
+      operationId: listCompetencies
       security:
         - OAuth2Bearer: [competencies:read]
       responses:
@@ -96,6 +648,8 @@ paths:
     post:
       tags: [Competencies]
       summary: Create competency
+      description: Create a competency requirement. Requires `competencies:write`.
+      operationId: createCompetency
       security:
         - OAuth2Bearer: [competencies:write]
       responses:
@@ -105,16 +659,42 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     OAuth2Bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+      type: oauth2
       description: |
-        OAuth2 access token (JWT). Required claims: `sub`, `tenant_id`, `roles`,
-        `scopes`, `iss`, `aud`, `iat`, `exp`. Role-to-permission expansion uses
-        `config/rbac/role-permission-matrix.yaml`.
+        OAuth2 access token (JWT Bearer). Required claims: `sub`, `tenant_id`,
+        `roles`, `scopes`, `iss`, `aud`, `iat`, `exp`. Role-to-permission
+        expansion uses `config/rbac/role-permission-matrix.yaml`. Tenant
+        isolation is mandatory for all taxonomy operations.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.asiwdp.example/oauth/authorize
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills, categories, proficiency levels, export
+            skills:write: Create/update/retire/import skills taxonomy
+            skills:delete: Delete skills taxonomy entities
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create/update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+            analytics:export: Export taxonomy snapshots
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            skills:read: Read skills, categories, proficiency levels, export
+            skills:write: Create/update/retire/import skills taxonomy
+            skills:delete: Delete skills taxonomy entities
+            skills:admin: Full skills administration
+            competencies:read: Read competencies
+            competencies:write: Create/update competencies
+            competencies:delete: Delete competencies
+            competencies:admin: Full competency administration
+            analytics:export: Export taxonomy snapshots
     OAuth2ClientCredentials:
       type: oauth2
       description: Machine-to-machine client credentials flow for service accounts.
@@ -122,14 +702,15 @@ components:
         clientCredentials:
           tokenUrl: https://auth.asiwdp.example/oauth/token
           scopes:
-            skills:read: Read skills
-            skills:write: Create/update skills
+            skills:read: Read skills taxonomy
+            skills:write: Create/update/import skills taxonomy
             skills:delete: Delete skills
             skills:admin: Full skills administration
             competencies:read: Read competencies
             competencies:write: Create/update competencies
             competencies:delete: Delete competencies
             competencies:admin: Full competency administration
+            analytics:export: Export taxonomy snapshots
   parameters:
     SkillId:
       name: skillId
@@ -138,6 +719,63 @@ components:
       schema:
         type: string
         format: uuid
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProficiencyId:
+      name: proficiencyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TaxonomyVersionHeader:
+      name: X-Taxonomy-Version
+      in: header
+      required: false
+      description: Taxonomy revision tag (default 1). Persisted on create/import.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    VersionQuery:
+      name: version
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    StatusQuery:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [active, deprecated, draft]
+    SearchQuery:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    LimitQuery:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+    OffsetQuery:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
   responses:
     Unauthorized:
       description: Missing, expired, or invalid JWT
@@ -151,6 +789,24 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Validation or import error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Entity not found in tenant scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Unique constraint conflict (code/version)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Error:
       type: object
@@ -160,5 +816,360 @@ components:
           type: string
         message:
           type: string
+    Skill:
+      type: object
+      required: [id, tenant_id, version, code, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        parent_skill_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SkillCreate:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        parent_skill_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+          nullable: true
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+    SkillUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        parent_skill_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+    Category:
+      type: object
+      required: [id, tenant_id, version, code, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        parent_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CategoryCreate:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        parent_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+          nullable: true
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+    CategoryUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        parent_category_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+    Proficiency:
+      type: object
+      required: [id, tenant_id, version, level, code, name, rank_order, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        level:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rank_order:
+          type: integer
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProficiencyCreate:
+      type: object
+      additionalProperties: false
+      required: [level, code, name, rank_order]
+      properties:
+        level:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rank_order:
+          type: integer
+        version:
+          type: integer
+          minimum: 1
+          nullable: true
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+    ProficiencyUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        level:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rank_order:
+          type: integer
+        status:
+          type: string
+          enum: [active, deprecated, draft]
+    PaginatedSkills:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Skill"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    PaginatedCategories:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    PaginatedProficiencies:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Proficiency"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    ImportRowError:
+      type: object
+      required: [row_number, errors]
+      properties:
+        row_number:
+          type: integer
+        entity_type:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        errors:
+          type: array
+          items:
+            type: string
+        raw:
+          type: object
+          additionalProperties: true
+          nullable: true
+    ImportReport:
+      type: object
+      required:
+        - import_id
+        - tenant_id
+        - version
+        - format
+        - entity_type
+        - total_rows
+        - success_count
+        - error_count
+      properties:
+        import_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        format:
+          type: string
+        entity_type:
+          type: string
+        total_rows:
+          type: integer
+        success_count:
+          type: integer
+        error_count:
+          type: integer
+        skipped_count:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRowError"
+        created_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        audit_entries:
+          type: integer
+    TaxonomyExport:
+      type: object
+      required: [tenant_id, version, items]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          nullable: true
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
 security:
   - OAuth2Bearer: []
