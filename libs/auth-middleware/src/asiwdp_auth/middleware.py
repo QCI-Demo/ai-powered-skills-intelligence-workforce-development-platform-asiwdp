@@ -106,6 +106,10 @@ class AuthMiddleware:
         try:
             token = _extract_bearer_token(headers.get("authorization"))
             principal = self.verifier.verify(token)
+            if self.config.enforce_tenant_header:
+                header_tenant = headers.get("x-tenant-id")
+                if header_tenant:
+                    principal.assert_same_tenant(header_tenant.strip())
             if self.required_permissions:
                 self.policy.assert_permissions(
                     principal.effective_permissions,
@@ -139,19 +143,24 @@ def require_permission(
             if principal is None:
                 return _error_response(TokenMissingError("Unauthenticated request"))
             try:
+                from asiwdp_auth.rbac import permission_satisfies
+
                 if "*" in principal.effective_permissions:
                     return None
                 if require_all:
                     missing = [
                         p
                         for p in permissions
-                        if p not in principal.effective_permissions
+                        if not permission_satisfies(principal.effective_permissions, p)
                     ]
                     if missing:
                         raise AuthorizationError(
                             f"Missing required permission(s): {', '.join(missing)}"
                         )
-                elif not any(p in principal.effective_permissions for p in permissions):
+                elif not any(
+                    permission_satisfies(principal.effective_permissions, p)
+                    for p in permissions
+                ):
                     raise AuthorizationError(
                         f"Requires one of: {', '.join(permissions)}"
                     )

@@ -23,15 +23,24 @@ class Principal:
     claims: AccessTokenClaims | None = None
 
     def has_permission(self, permission: str) -> bool:
-        if "*" in self.effective_permissions:
-            return True
-        return permission in self.effective_permissions
+        from asiwdp_auth.rbac import permission_satisfies
+
+        return permission_satisfies(self.effective_permissions, permission)
 
     def has_any_permission(self, permissions: tuple[str, ...] | list[str]) -> bool:
         return any(self.has_permission(p) for p in permissions)
 
     def has_all_permissions(self, permissions: tuple[str, ...] | list[str]) -> bool:
         return all(self.has_permission(p) for p in permissions)
+
+    def assert_same_tenant(self, tenant_id: str) -> None:
+        """Fail closed when a request tenant does not match the token tenant."""
+        from asiwdp_auth.errors import AuthorizationError
+
+        if not self.tenant_id:
+            raise AuthorizationError("Principal has no tenant binding")
+        if self.tenant_id != tenant_id:
+            raise AuthorizationError("Cross-tenant access denied")
 
     def has_role(self, role: str) -> bool:
         return role in self.roles

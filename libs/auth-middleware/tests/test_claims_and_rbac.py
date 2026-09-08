@@ -81,6 +81,22 @@ class TestRbacPolicy:
         assert "analytics:read" in effective
         assert "usage:read" in effective
 
+    def test_admin_permission_satisfies_lower_actions(
+        self, rbac_policy: RbacPolicy
+    ) -> None:
+        effective = rbac_policy.expand_effective_permissions(roles=["tenant_admin"])
+        rbac_policy.assert_permissions(effective, ["skills:write", "users:read"])
+
+    def test_tenant_mismatch_denied(self, auth_config, rbac_policy) -> None:
+        from asiwdp_auth.errors import AuthorizationError
+        from asiwdp_auth.jwt_verifier import JwtVerifier
+
+        verifier = JwtVerifier(auth_config, rbac_policy)
+        principal = verifier.verify(make_token(roles=["learner"]))
+        with pytest.raises(AuthorizationError):
+            principal.assert_same_tenant("99999999-9999-9999-9999-999999999999")
+
+
 
 class TestJwtVerifier:
     def test_verify_builds_principal(self, auth_config, rbac_policy) -> None:

@@ -93,6 +93,9 @@ Effective permissions for a request are the **union** of:
 3. Permissions implied by each role in `roles` via
    `config/rbac/role-permission-matrix.yaml`
 
+Enforcement treats `resource:admin` as superseding any `resource:<action>`
+for the same resource (e.g. `skills:admin` satisfies `skills:write`).
+
 Platform-level `*` (wildcard) is reserved for `platform_admin` /
 `system` actors and must never appear on learner or customer-admin tokens
 unless explicitly issued by the identity service for break-glass operations.
@@ -136,9 +139,10 @@ Full role → permission mappings live in
 2. Verify signature, `iss`, `aud`, `exp` / `iat` (with skew).
 3. Require `sub` and `tenant_id` (fail closed).
 4. Build request principal: subject, tenant, roles, scopes, effective permissions.
-5. Optionally enforce a required permission / scope for the route.
-6. Attach principal to request state for downstream handlers.
-7. Never log raw tokens or secrets.
+5. If `X-Tenant-ID` is present, require it to equal the token `tenant_id`.
+6. Optionally enforce a required permission / scope for the route.
+7. Attach principal to request state for downstream handlers.
+8. Never log raw tokens or secrets.
 
 HTTP outcomes:
 
@@ -149,6 +153,7 @@ HTTP outcomes:
 | Expired token | 401 |
 | Missing required claims | 401 |
 | Wrong issuer / audience | 401 |
+| Tenant header mismatch (`X-Tenant-ID`) | 403 |
 | Authenticated but permission denied | 403 |
 
 ## 7. Tenant Isolation Rules
@@ -156,6 +161,8 @@ HTTP outcomes:
 - Every protected operation runs inside the token’s `tenant_id`.
 - Path / query / body tenant identifiers must match the token tenant or the
   request is denied (403).
+- When present, the `X-Tenant-ID` request header must match the token
+  `tenant_id` (middleware default: `enforce_tenant_header=true`).
 - `platform_admin` may operate cross-tenant only when the identity service
   issues a token without a binding tenant **and** the calling service
   explicitly opts into platform mode (default is tenant-required).
@@ -178,7 +185,16 @@ security:
 Per-endpoint `security` / description documents the required scopes
 (e.g. `skills:write`). See files under [`openapi/`](../../openapi/).
 
-## 9. Versioning
+## 9. Machine-Readable Artifacts
+
+| Artifact | Path |
+|----------|------|
+| Platform OpenAPI contract | [`openapi.yaml`](../../openapi.yaml) |
+| JWT claims JSON Schema | [`schemas/jwt-access-token-claims.schema.json`](../../schemas/jwt-access-token-claims.schema.json) |
+| Role → permission matrix | [`config/rbac/role-permission-matrix.yaml`](../../config/rbac/role-permission-matrix.yaml) |
+| Per-service OpenAPI | [`openapi/`](../../openapi/) |
+
+## 10. Versioning
 
 | Field | Value |
 |-------|--------|

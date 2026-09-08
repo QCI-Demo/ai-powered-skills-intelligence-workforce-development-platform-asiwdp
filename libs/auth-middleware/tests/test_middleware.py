@@ -138,6 +138,17 @@ class TestRbacDenial:
         assert response.status_code == 200
         assert response.json()["action"] == "skills:write"
 
+    def test_tenant_admin_admin_implies_skills_write(
+        self, app_client: TestClient
+    ) -> None:
+        """tenant_admin has skills:admin which satisfies skills:write."""
+        token = make_token(roles=["tenant_admin"])
+        response = app_client.post(
+            "/api/skills", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["action"] == "skills:write"
+
     def test_middleware_required_permission_denies_learner(
         self, rbac_app_client: TestClient
     ) -> None:
@@ -157,3 +168,50 @@ class TestRbacDenial:
         )
         assert response.status_code == 200
         assert response.json()["ok"] is True
+
+    def test_matching_tenant_header_allowed(self, app_client: TestClient) -> None:
+        token = make_token(roles=["learner"])
+        response = app_client.get(
+            "/api/me",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Tenant-ID": "22222222-2222-2222-2222-222222222222",
+            },
+        )
+        assert response.status_code == 200
+
+    def test_mismatched_tenant_header_returns_403(
+        self, app_client: TestClient
+    ) -> None:
+        token = make_token(roles=["learner"])
+        response = app_client.get(
+            "/api/me",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Tenant-ID": "99999999-9999-9999-9999-999999999999",
+            },
+        )
+        assert response.status_code == 403
+        assert response.json()["error"] == "forbidden"
+
+
+class TestMissingClaims:
+    def test_missing_tenant_claim_returns_401(self, app_client: TestClient) -> None:
+        import time
+
+        now = int(time.time())
+        payload = {
+            "sub": "11111111-1111-1111-1111-111111111111",
+            "iat": now,
+            "exp": now + 3600,
+            "iss": "https://auth.asiwdp.test/",
+            "aud": "asiwdp-api",
+            "roles": ["learner"],
+            "scopes": [],
+        }
+        token = jwt.encode(payload, TEST_SECRET, algorithm="HS256")
+        response = app_client.get(
+            "/api/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 401
+        assert response.json()["error"] == "claims_invalid"

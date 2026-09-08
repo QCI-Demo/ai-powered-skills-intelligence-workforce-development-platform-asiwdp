@@ -10,6 +10,23 @@ import yaml
 from asiwdp_auth.errors import AuthorizationError
 
 
+def permission_satisfies(effective: frozenset[str] | set[str], required: str) -> bool:
+    """Return True if *effective* grants *required*.
+
+    Rules:
+    - ``*`` grants every permission
+    - Exact match grants the permission
+    - ``resource:admin`` grants any ``resource:<action>`` for the same resource
+    """
+    if "*" in effective or required in effective:
+        return True
+    if ":" in required:
+        resource, _action = required.split(":", 1)
+        if f"{resource}:admin" in effective:
+            return True
+    return False
+
+
 class RbacPolicy:
     """Tenant-scoped role → permission matrix."""
 
@@ -75,13 +92,13 @@ class RbacPolicy:
         if "*" in effective:
             return
         if require_all:
-            missing = [p for p in required if p not in effective]
+            missing = [p for p in required if not permission_satisfies(effective, p)]
             if missing:
                 raise AuthorizationError(
                     f"Missing required permission(s): {', '.join(missing)}"
                 )
         else:
-            if not any(p in effective for p in required):
+            if not any(permission_satisfies(effective, p) for p in required):
                 raise AuthorizationError(
                     f"Requires one of: {', '.join(required)}"
                 )
