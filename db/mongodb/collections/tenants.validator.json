@@ -1,0 +1,31 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["tenant_id", "slug", "display_name", "status", "created_at"],
+    "properties": {
+      "_id": { "bsonType": ["objectId", "string"] },
+      "tenant_id": {
+        "bsonType": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        "description": "Partition key (UUID)"
+      },
+      "slug": {
+        "bsonType": "string",
+        "minLength": 2,
+        "maxLength": 64,
+        "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+      },
+      "display_name": { "bsonType": "string", "minLength": 1, "maxLength": 255 },
+      "status": {
+        "enum": ["provisioning", "active", "suspended", "decommissioned"]
+      },
+      "plan_code": { "bsonType": "string" },
+      "data_residency": { "bsonType": "string" },
+      "created_by": { "bsonType": ["string", "null"] },
+      "created_at": { "bsonType": "date" },
+      "updated_at": { "bsonType": "date" },
+      "provisioned_at": { "bsonType": ["date", "null"] }
+    },
+    "additionalProperties": false
+  }
+}

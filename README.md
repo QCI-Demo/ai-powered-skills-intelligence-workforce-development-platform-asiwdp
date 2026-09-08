@@ -3,11 +3,36 @@
 Multi-tenant SaaS platform foundation for skills intelligence, personalized
 learning, and workforce readiness.
 
+## Tenant Provisioning (this branch)
+
+Idempotent `POST /api/tenants` creates a tenant record, seeds default
+configuration and metadata, enforces **PlatformAdmin** RBAC via Story S2
+`asiwdp-auth` middleware, and emits a tenant-scoped provisioning event.
+
+| Area | Location |
+|------|----------|
+| Design / ER | [`docs/design/tenant-entity-schema.md`](docs/design/tenant-entity-schema.md) |
+| Provisioned event | [`docs/design/tenant-provisioned-event.md`](docs/design/tenant-provisioned-event.md) |
+| PostgreSQL DDL | [`db/postgres/sql/V1__create_tenant_provisioning_schema.sql`](db/postgres/sql/V1__create_tenant_provisioning_schema.sql) |
+| MongoDB schemas | [`db/mongodb/`](db/mongodb/) |
+| Service | [`services/tenant-provisioning/`](services/tenant-provisioning/) |
+| API Gateway route | [`config/api-gateway/tenant-provisioning-route.yaml`](config/api-gateway/tenant-provisioning-route.yaml) |
+| OpenAPI | [`openapi/tenant-provisioning-service.yaml`](openapi/tenant-provisioning-service.yaml) |
+| Auth middleware (S2) | [`libs/auth-middleware/`](libs/auth-middleware/) |
+| RBAC matrix | [`config/rbac/role-permission-matrix.yaml`](config/rbac/role-permission-matrix.yaml) |
+
+### Run provisioning tests
+
+```bash
+pip install -e "libs/auth-middleware[dev]"
+pip install -e "services/tenant-provisioning[dev]"
+pytest services/tenant-provisioning/tests -q
+```
+
 ## OAuth2 / JWT Authentication Middleware
 
-This repository delivers the reusable **`asiwdp-auth`** middleware library and
-supporting RBAC / OpenAPI artifacts for story
-`6db721b1-7e99-4f99-992e-2bfda2e66a84`.
+Reusable **`asiwdp-auth`** middleware library and supporting RBAC / OpenAPI
+artifacts.
 
 | Artifact | Path |
 |----------|------|
@@ -16,21 +41,9 @@ supporting RBAC / OpenAPI artifacts for story
 | Middleware package | [`libs/auth-middleware/`](libs/auth-middleware/) |
 | Service OpenAPI specs | [`openapi/`](openapi/) |
 
-### Install & test
+### Install & test auth middleware
 
 ```bash
 pip install -e "libs/auth-middleware[dev]"
 pytest libs/auth-middleware/tests -q
-```
-
-### Integration sketch
-
-```python
-from asiwdp_auth import AuthMiddleware, AuthConfig
-
-app.add_middleware(
-    AuthMiddleware,
-    config=AuthConfig.from_env(),
-    rbac_matrix_path="config/rbac/role-permission-matrix.yaml",
-)
 ```

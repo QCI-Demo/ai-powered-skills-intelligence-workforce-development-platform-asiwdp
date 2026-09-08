@@ -62,6 +62,13 @@ roles:
     permissions:
       - "*"
 
+  # Provisioning API accepts PascalCase JWT role claim "PlatformAdmin"
+  PlatformAdmin:
+    description: Alias of platform_admin for JWT role claim compatibility.
+    platform_scoped: true
+    permissions:
+      - "*"
+
   tenant_admin:
     description: Full administration within a single tenant.
     platform_scoped: false

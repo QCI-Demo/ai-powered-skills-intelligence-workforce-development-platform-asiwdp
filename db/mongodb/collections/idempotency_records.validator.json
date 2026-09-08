@@ -1,0 +1,29 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "idempotency_key",
+      "tenant_id",
+      "request_hash",
+      "response_status",
+      "response_body",
+      "created_at",
+      "expires_at"
+    ],
+    "properties": {
+      "_id": { "bsonType": ["objectId", "string"] },
+      "idempotency_key": { "bsonType": "string", "minLength": 8, "maxLength": 128 },
+      "tenant_id": {
+        "bsonType": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        "description": "Partition key of the provisioned tenant"
+      },
+      "request_hash": { "bsonType": "string" },
+      "response_status": { "bsonType": "int", "minimum": 200, "maximum": 599 },
+      "response_body": { "bsonType": "object" },
+      "created_at": { "bsonType": "date" },
+      "expires_at": { "bsonType": "date" }
+    },
+    "additionalProperties": false
+  }
+}

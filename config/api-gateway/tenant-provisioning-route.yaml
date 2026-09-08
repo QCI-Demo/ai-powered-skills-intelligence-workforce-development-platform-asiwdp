@@ -1,0 +1,65 @@
+# ASIWDP API Gateway — Tenant Provisioning Route
+#
+# Registers POST /api/tenants on the edge gateway and forwards to the
+# tenant-provisioning service. JWT validation / PlatformAdmin RBAC is enforced
+# by Story S2 `asiwdp-auth` middleware in the upstream service; the gateway
+# forwards Authorization and Idempotency-Key.
+
+services:
+  - name: tenant-provisioning
+    url: http://tenant-provisioning:8000
+    routes:
+      - name: tenant-provision-create
+        paths:
+          - /api/tenants
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-Forwarded-Service:tenant-provisioning
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - POST
+                - OPTIONS
+              headers:
+                - Authorization
+                - Content-Type
+                - Idempotency-Key
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: local
+        auth:
+          required: true
+          roles_any:
+            - PlatformAdmin
+            - platform_admin
+          permissions_any:
+            - tenants:admin
+            - "*"
+        headers_passthrough:
+          - Authorization
+          - Idempotency-Key
+          - X-Correlation-Id
+          - X-Request-Id
+        timeout_ms: 10000
+
+      - name: tenant-provision-health
+        paths:
+          - /api/tenants/health
+        methods:
+          - GET
+        strip_path: false
+        auth:
+          required: false
+
+# Upstream mapping:
+#   POST /api/tenants          -> POST http://tenant-provisioning:8000/api/tenants
+#   GET  /api/tenants/health   -> GET  http://tenant-provisioning:8000/api/tenants/health

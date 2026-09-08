@@ -11,6 +11,7 @@ tenant-scoped RBAC scope annotations.
 | `progress-tracking-service.yaml` | Progress tracking |
 | `analytics-insights-service.yaml` | Analytics & insights |
 | `tenant-admin-service.yaml` | Tenant / org / user admin |
+| `tenant-provisioning-service.yaml` | Idempotent tenant provisioning (`POST /api/tenants`) |
 
 All protected operations declare `security` referencing `OAuth2Bearer` and
 document required scopes (e.g. `skills:write`). Claim schema:
