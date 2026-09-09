@@ -157,3 +157,31 @@ class TestRbacDenial:
         )
         assert response.status_code == 200
         assert response.json()["ok"] is True
+
+
+class TestRequireRole:
+    def test_learner_denied_platform_admin_role_returns_403(
+        self, app_client: TestClient
+    ) -> None:
+        token = make_token(roles=["learner"])
+        response = app_client.post(
+            "/api/platform", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403
+        assert response.json()["error"] == "forbidden"
+        assert "PlatformAdmin" in response.json()["message"]
+
+    def test_platform_admin_pascal_allowed(self, app_client: TestClient) -> None:
+        token = make_token(roles=["PlatformAdmin"])
+        response = app_client.post(
+            "/api/platform", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json()["action"] == "platform_admin"
+
+    def test_platform_admin_snake_allowed(self, app_client: TestClient) -> None:
+        token = make_token(roles=["platform_admin"])
+        response = app_client.post(
+            "/api/platform", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200

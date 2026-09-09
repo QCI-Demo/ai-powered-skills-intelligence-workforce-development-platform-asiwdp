@@ -15,7 +15,7 @@ from asiwdp_tenant_provisioning.events.publisher import (
     InMemoryEventBus,
     TenantProvisioningPublisher,
 )
-from asiwdp_tenant_provisioning.rbac import is_platform_admin
+from asiwdp_tenant_provisioning.rbac import PLATFORM_ADMIN_ROLES, is_platform_admin
 from asiwdp_tenant_provisioning.store import InMemoryTenantStore
 
 
@@ -54,13 +54,23 @@ def get_controller(
     return ProvisioningController(store, publisher)
 
 
+def _principal_from_request(request: Request) -> object | None:
+    """Resolve principal attached by Story S2 AuthMiddleware."""
+    state = request.state
+    principal = getattr(state, "principal", None)
+    if principal is None and isinstance(state, dict):
+        principal = state.get("principal")
+    return principal
+
+
 def require_platform_admin(request: Request) -> ActorContext:
     """
-    Enforce Story S2 auth + PlatformAdmin RBAC.
+    Enforce Story S2 auth + PlatformAdmin RBAC on provisioning.
 
-    Returns 401 when unauthenticated, 403 when authenticated without PlatformAdmin.
+    * 401 — missing/unauthenticated principal (Bearer JWT required)
+    * 403 — authenticated caller without PlatformAdmin / platform_admin
     """
-    principal = getattr(request.state, "principal", None)
+    principal = _principal_from_request(request)
     if principal is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,7 +85,10 @@ def require_platform_admin(request: Request) -> ActorContext:
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "error": "forbidden",
-                "message": "PlatformAdmin role required to provision tenants",
+                "message": (
+                    "PlatformAdmin role required to provision tenants; "
+                    f"accepted roles: {', '.join(sorted(PLATFORM_ADMIN_ROLES))}"
+                ),
             },
         )
     roles = tuple(getattr(principal, "roles", ()) or ())
