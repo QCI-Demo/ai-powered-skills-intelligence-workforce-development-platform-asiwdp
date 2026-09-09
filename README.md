@@ -3,11 +3,12 @@
 Multi-tenant SaaS platform foundation for skills intelligence, personalized
 learning, and workforce readiness.
 
-## Tenant Provisioning (this branch)
+## Tenant Provisioning + Endpoint Security (this branch)
 
 Idempotent `POST /api/tenants` creates a tenant record, seeds default
-configuration and metadata, enforces **PlatformAdmin** RBAC via Story S2
-`asiwdp-auth` middleware, and emits a tenant-scoped provisioning event.
+configuration and metadata, and emits a tenant-scoped provisioning event.
+Security: Story S2 `AuthMiddleware` is mounted by default; only
+`PlatformAdmin` / `platform_admin` may create tenants (HTTP **403** otherwise).
 
 | Area | Location |
 |------|----------|

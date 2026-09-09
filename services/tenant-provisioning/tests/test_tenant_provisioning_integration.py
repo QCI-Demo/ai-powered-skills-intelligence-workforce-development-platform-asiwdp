@@ -189,6 +189,11 @@ class TestRbacEnforcement:
             json=_payload(),
         )
         assert response.status_code == 401
+        body = response.json()
+        assert body.get("error") == "token_missing" or (
+            isinstance(body.get("detail"), dict)
+            and body["detail"].get("error") == "unauthenticated"
+        )
 
     def test_learner_forbidden(self, client: TestClient) -> None:
         headers = {
@@ -198,12 +203,10 @@ class TestRbacEnforcement:
         }
         response = client.post("/api/tenants", headers=headers, json=_payload())
         assert response.status_code == 403
-        body = response.json()
-        # Either middleware or route-level 403
-        detail = body.get("detail") or body
-        if isinstance(detail, dict):
-            assert detail.get("error") in {"forbidden", "authorization_error", None} or True
-        assert response.status_code == 403
+        detail = response.json().get("detail") or response.json()
+        assert isinstance(detail, dict)
+        assert detail.get("error") == "forbidden"
+        assert "PlatformAdmin" in detail.get("message", "")
 
     def test_tenant_admin_forbidden(self, client: TestClient) -> None:
         headers = {
@@ -215,6 +218,22 @@ class TestRbacEnforcement:
             "/api/tenants",
             headers=headers,
             json=_payload(slug="other-co"),
+        )
+        assert response.status_code == 403
+        detail = response.json()["detail"]
+        assert detail["error"] == "forbidden"
+        assert "PlatformAdmin" in detail["message"]
+
+    def test_org_admin_forbidden(self, client: TestClient) -> None:
+        headers = {
+            "Authorization": f"Bearer {make_token(roles=['org_admin'])}",
+            "Idempotency-Key": "prov-org-admin-0001",
+            "Content-Type": "application/json",
+        }
+        response = client.post(
+            "/api/tenants",
+            headers=headers,
+            json=_payload(slug="org-admin-co"),
         )
         assert response.status_code == 403
 
@@ -232,6 +251,44 @@ class TestRbacEnforcement:
             json=_payload(slug="snake-admin-co"),
         )
         assert response.status_code == 201
+
+    def test_platform_admin_pascal_case_allowed(
+        self, client: TestClient, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.post(
+            "/api/tenants",
+            headers={**admin_headers, "Idempotency-Key": "prov-pascal-admin-0001"},
+            json=_payload(slug="pascal-admin-co"),
+        )
+        assert response.status_code == 201
+
+    def test_auth_middleware_mounted_by_default(
+        self, auth_config: AuthConfig
+    ) -> None:
+        """create_app() enables Story S2 middleware unless explicitly disabled."""
+        app = create_app(
+            auth_config=auth_config,
+            rbac_matrix_path=RBAC_MATRIX,
+        )
+        default_client = TestClient(app)
+        response = default_client.post(
+            "/api/tenants",
+            headers={"Idempotency-Key": "prov-default-auth-0001"},
+            json=_payload(slug="default-auth-co"),
+        )
+        assert response.status_code == 401
+
+    def test_route_gate_fail_closed_without_middleware(self) -> None:
+        """Even if middleware is off, missing principal yields 401 (not open)."""
+        app = create_app(enable_auth=False)
+        open_client = TestClient(app)
+        response = open_client.post(
+            "/api/tenants",
+            headers={"Idempotency-Key": "prov-fail-closed-0001"},
+            json=_payload(slug="fail-closed-co"),
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"]["error"] == "unauthenticated"
 
 
 class TestTenantIsolationAndEvents:

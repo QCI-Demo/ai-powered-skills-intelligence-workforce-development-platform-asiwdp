@@ -16,6 +16,13 @@ if TYPE_CHECKING:
     from asiwdp_auth import AuthConfig
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def create_app(
     *,
     enable_auth: bool | None = None,
@@ -25,15 +32,18 @@ def create_app(
     """
     Build the ASGI application.
 
-    Auth middleware (Story S2) is enabled when ``ASIWDP_AUTH_ENABLED=true``,
-    ``enable_auth=True``, or an explicit ``auth_config`` is provided.
+    Story S2 ``AuthMiddleware`` is mounted by default so ``POST /api/tenants``
+    rejects unauthenticated callers. Disable only via ``enable_auth=False`` or
+    ``ASIWDP_AUTH_ENABLED=false`` (local scaffolding). Route-level
+    ``require_platform_admin`` still returns 401/403 when a principal is absent
+    or lacks ``PlatformAdmin``.
     """
     app = FastAPI(
         title="ASIWDP Tenant Provisioning Service",
         version="1.0.0",
         description=(
             "Idempotent tenant provisioning with default configuration, "
-            "PlatformAdmin RBAC, and tenant-scoped telemetry events."
+            "PlatformAdmin RBAC (Story S2 middleware), and tenant-scoped telemetry."
         ),
     )
     app.state.tenant_store = InMemoryTenantStore()
@@ -46,8 +56,7 @@ def create_app(
         else (
             enable_auth
             if enable_auth is not None
-            else os.getenv("ASIWDP_AUTH_ENABLED", "false").lower()
-            in {"1", "true", "yes"}
+            else _env_flag("ASIWDP_AUTH_ENABLED", default=True)
         )
     )
     if auth_flag:
@@ -110,4 +119,20 @@ def _mount_auth(
     )
 
 
-app = create_app()
+def _module_app() -> FastAPI:
+    """
+    ASGI entrypoint for uvicorn.
+
+    Auth is on by default when ``ASIWDP_AUTH_*`` is configured. If secrets are
+    absent (package import / local scaffolding), fall back to middleware-off
+    with route-level fail-closed PlatformAdmin checks (401 without principal).
+    Production must set ``ASIWDP_AUTH_ISSUER``, ``ASIWDP_AUTH_AUDIENCE``, and
+    ``ASIWDP_AUTH_VERIFICATION_KEY``.
+    """
+    try:
+        return create_app()
+    except ValueError:
+        return create_app(enable_auth=False)
+
+
+app = _module_app()
