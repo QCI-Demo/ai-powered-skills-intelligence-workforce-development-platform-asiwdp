@@ -1,0 +1,3397 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "ASIWDP Skills Framework API",
+    "description": "Automated API test suite for the ASIWDP Skills Framework & Competency Management Service.\n\nCovers CRUD, bulk import/export, taxonomy versioning, tenant isolation, and malformed payloads.\n\n**Variables:** `baseUrl`, `tenant_id`, `version`, `historic_version`, `access_token`, `skill_id`, `category_id`, `proficiency_id`.\n\nAligned with OpenAPI skills-framework-service.yaml (versioned CRUD + /taxonomy/import|export).\n\nStory: Automated API Test Suites for Skills Service (QA \u2014 Maya Silva).\nProject: AI-Powered Skills Intelligence & Workforce Development Platform (ASIWDP).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "tenant_id",
+      "value": "11111111-1111-4111-8111-111111111111"
+    },
+    {
+      "key": "version",
+      "value": "1"
+    },
+    {
+      "key": "historic_version",
+      "value": "1"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "skill_id",
+      "value": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    },
+    {
+      "key": "category_id",
+      "value": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    },
+    {
+      "key": "proficiency_id",
+      "value": "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    },
+    {
+      "key": "run_id",
+      "value": ""
+    },
+    {
+      "key": "versioned_skill_id",
+      "value": ""
+    },
+    {
+      "key": "export_count_current",
+      "value": "0"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection pre-request: ensure run_id for unique codes",
+          "if (!pm.collectionVariables.get('run_id')) {",
+          "  pm.collectionVariables.set('run_id', Date.now().toString(36));",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level: always record response for CI reports",
+          "pm.test('Response received', function () {",
+          "  pm.expect(pm.response.code).to.be.a('number');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Health",
+      "description": "Unauthenticated liveness probe",
+      "item": [
+        {
+          "name": "GET /health \u2014 liveness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Service liveness; no auth required."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Health body status ok', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('status');",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Skills CRUD (valid)",
+      "description": "Happy-path create/read/update/retire with {{tenant_id}} and {{version}} substitution.",
+      "item": [
+        {
+          "name": "POST /skills \u2014 create valid skill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "Create skill; captures skill_id. Uses {{tenant_id}} and {{version}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"SKILL-{{run_id}}-PY\",\n  \"name\": \"Python Programming\",\n  \"description\": \"Write and maintain Python applications\",\n  \"category\": \"Technical\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Skill schema has required fields', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.expect(j.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.be.a('number').and.to.be.at.least(1);",
+                  "  pm.expect(['active','deprecated','draft']).to.include(j.status);",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});",
+                  "pm.test('Persist skill_id for chained requests', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('skill_id', j.id);",
+                  "  pm.expect(String(j.version)).to.eql(String(pm.collectionVariables.get('version')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills \u2014 list by tenant/version",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills?version={{version}}&status=active&limit=50&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});",
+                  "pm.test('Listed items match tenant_id', function () {",
+                  "  const j = pm.response.json();",
+                  "  const tid = pm.collectionVariables.get('tenant_id');",
+                  "  j.items.forEach(s => pm.expect(s.tenant_id).to.eql(tid));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills/{skillId} \u2014 get by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skill_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "{{skill_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Skill schema has required fields', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.expect(j.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.be.a('number').and.to.be.at.least(1);",
+                  "  pm.expect(['active','deprecated','draft']).to.include(j.status);",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /skills/{skillId} \u2014 update valid",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skill_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "{{skill_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Python Programming (Advanced)\",\n  \"description\": \"Updated description\",\n  \"category\": \"Technical\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Skill schema has required fields', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.expect(j.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.be.a('number').and.to.be.at.least(1);",
+                  "  pm.expect(['active','deprecated','draft']).to.include(j.status);",
+                  "});",
+                  "pm.test('Name was updated', function () {",
+                  "  pm.expect(pm.response.json().name).to.include('Advanced');",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills/search \u2014 search by name",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/search?q=Python&version={{version}}&limit=25&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Python"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills/{skillId}/retire \u2014 retire skill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skill_id}}/retire",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "{{skill_id}}",
+                "retire"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Skill schema has required fields', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.expect(j.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.be.a('number').and.to.be.at.least(1);",
+                  "  pm.expect(['active','deprecated','draft']).to.include(j.status);",
+                  "});",
+                  "pm.test('Status is deprecated', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('deprecated');",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Skills CRUD (malformed)",
+      "description": "Negative validation cases \u2014 missing fields, wrong types, empty body.",
+      "item": [
+        {
+          "name": "POST /skills \u2014 missing required code/name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"no code or name\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 empty body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 invalid parent_skill_id type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BAD-PARENT\",\n  \"name\": \"Bad Parent\",\n  \"parent_skill_id\": \"not-a-uuid\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 version below minimum",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BAD-VER\",\n  \"name\": \"Bad Version\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 unknown additional property",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"EXTRA-PROP\",\n  \"name\": \"Extra Prop\",\n  \"not_a_field\": true,\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /skills/{skillId} \u2014 invalid status enum",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/{{skill_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "{{skill_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"archived\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills/{skillId} \u2014 unknown id returns 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills \u2014 unauthorized without token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills?version={{version}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Categories CRUD",
+      "item": [
+        {
+          "name": "POST /categories \u2014 create valid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-{{run_id}}-TECH\",\n  \"name\": \"Technical Skills\",\n  \"description\": \"Engineering and IT\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Category schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.collectionVariables.set('category_id', j.id);",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /categories/{categoryId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Category tenant matches', function () {",
+                  "  pm.expect(pm.response.json().tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /categories/{categoryId}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{category_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Technical Skills (Updated)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /categories \u2014 malformed missing name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAT-BAD\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /categories/{categoryId}/retire",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{category_id}}/retire",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}",
+                "retire"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Category deprecated', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('deprecated');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Proficiencies CRUD",
+      "item": [
+        {
+          "name": "POST /proficiencies \u2014 create valid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/proficiencies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "proficiencies"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"level\": 3,\n  \"code\": \"PROF-{{run_id}}-L3\",\n  \"name\": \"Proficient\",\n  \"rank_order\": 30,\n  \"description\": \"Works independently\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Proficiency schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('id','tenant_id','version','level','code','name','rank_order','status');",
+                  "  pm.collectionVariables.set('proficiency_id', j.id);",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /proficiencies/{proficiencyId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/proficiencies/{{proficiency_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "proficiencies",
+                "{{proficiency_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /proficiencies/{proficiencyId}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/proficiencies/{{proficiency_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "proficiencies",
+                "{{proficiency_id}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Proficient+\",\n  \"rank_order\": 35\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /proficiencies \u2014 malformed level < 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/proficiencies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "proficiencies"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"level\": 0,\n  \"code\": \"PROF-BAD\",\n  \"name\": \"Invalid\",\n  \"rank_order\": 1,\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /proficiencies/{proficiencyId}/retire",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/proficiencies/{{proficiency_id}}/retire",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "proficiencies",
+                "{{proficiency_id}}",
+                "retire"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Proficiency deprecated', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('deprecated');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Bulk Import",
+      "description": "POST /taxonomy/import \u2014 valid CSV/JSON and malformed rows.",
+      "item": [
+        {
+          "name": "POST /taxonomy/import \u2014 valid JSON skills",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "Bulk import valid JSON skills; tenant comes from JWT ({{tenant_id}}); version from form {{version}}.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "skill",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "json",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/skills-import-valid.json"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('ImportReport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  const required = ['import_id','tenant_id','version','format','entity_type','total_rows','success_count','error_count'];",
+                  "  required.forEach(k => pm.expect(j, 'missing '+k).to.have.property(k));",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.eql(Number(pm.collectionVariables.get('version')));",
+                  "});",
+                  "pm.test('All rows succeeded', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error_count).to.eql(0);",
+                  "  pm.expect(j.success_count).to.be.at.least(1);",
+                  "  pm.expect(j.entity_type).to.eql('skill');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /taxonomy/import \u2014 valid CSV skills",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "skill",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "csv",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/skills-import-valid.csv"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('ImportReport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  const required = ['import_id','tenant_id','version','format','entity_type','total_rows','success_count','error_count'];",
+                  "  required.forEach(k => pm.expect(j, 'missing '+k).to.have.property(k));",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.eql(Number(pm.collectionVariables.get('version')));",
+                  "});",
+                  "pm.test('CSV import success_count > 0', function () {",
+                  "  pm.expect(pm.response.json().success_count).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /taxonomy/import \u2014 malformed rows (partial failure report)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "Expect ImportReport with per-row validation errors for missing code/name and bad version.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "skill",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "json",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/skills-import-malformed.json"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('ImportReport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  const required = ['import_id','tenant_id','version','format','entity_type','total_rows','success_count','error_count'];",
+                  "  required.forEach(k => pm.expect(j, 'missing '+k).to.have.property(k));",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.eql(Number(pm.collectionVariables.get('version')));",
+                  "});",
+                  "pm.test('Row-level errors present', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error_count).to.be.at.least(1);",
+                  "  pm.expect(j.errors).to.be.an('array').and.not.empty;",
+                  "  pm.expect(j.errors[0]).to.have.property('row_number');",
+                  "  pm.expect(j.errors[0]).to.have.property('errors');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /taxonomy/import \u2014 missing file (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "skill",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "json",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /taxonomy/import \u2014 invalid entity_type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "role",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "json",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/skills-import-valid.json"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /taxonomy/import \u2014 version mismatch (malformed version=0)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "import"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "entity_type",
+                  "value": "skill",
+                  "type": "text"
+                },
+                {
+                  "key": "format",
+                  "value": "json",
+                  "type": "text"
+                },
+                {
+                  "key": "version",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/skills-import-valid.json"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Bulk Export",
+      "description": "GET /taxonomy/export \u2014 JSON/CSV with tenant_id and version filters.",
+      "item": [
+        {
+          "name": "GET /taxonomy/export \u2014 JSON current version",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id={{tenant_id}}&version={{version}}&format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('TaxonomyExport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('tenant_id','version','items');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "});",
+                  "pm.test('Response time under 50ms (SLA)', function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(50);",
+                  "});",
+                  "pm.test('Export version matches request', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(Number(j.version)).to.eql(Number(pm.collectionVariables.get('version')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /taxonomy/export \u2014 CSV format",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/csv",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id={{tenant_id}}&version={{version}}&format=csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('CSV content-type', function () {",
+                  "  const ct = pm.response.headers.get('Content-Type') || '';",
+                  "  pm.expect(ct).to.match(/text\\/csv|application\\/octet-stream/i);",
+                  "});",
+                  "pm.test('CSV has header row', function () {",
+                  "  const text = pm.response.text();",
+                  "  pm.expect(text.split('\\n')[0].toLowerCase()).to.match(/code|name|tenant/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /taxonomy/export \u2014 historic version snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id={{tenant_id}}&version={{historic_version}}&format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "key": "version",
+                  "value": "{{historic_version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('TaxonomyExport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('tenant_id','version','items');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "});",
+                  "pm.test('Historic version echoed', function () {",
+                  "  pm.expect(Number(pm.response.json().version)).to.eql(Number(pm.collectionVariables.get('historic_version')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /taxonomy/export \u2014 mismatched tenant_id forbidden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id=22222222-2222-4222-8222-222222222222&version={{version}}&format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "22222222-2222-4222-8222-222222222222"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Caller JWT tenant must match query tenant_id; expect 403 for foreign tenant."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /taxonomy/export \u2014 unsupported format (406)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id={{tenant_id}}&version={{version}}&format=xml",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "xml"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 406 or 400 for unsupported format', function () {",
+                  "  pm.expect([400, 406]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Error schema has error and message', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('error');",
+                  "  pm.expect(j).to.have.property('message');",
+                  "  pm.expect(j.error).to.be.a('string');",
+                  "  pm.expect(j.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Versioning Scenarios",
+      "description": "X-Taxonomy-Version header and version query isolation across taxonomy revisions.",
+      "item": [
+        {
+          "name": "POST /skills \u2014 create on version {{version}}",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"VER-{{run_id}}-V1\",\n  \"name\": \"Versioned Skill v-current\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Skill schema has required fields', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.keys('id','tenant_id','version','code','name','status');",
+                  "  pm.expect(j.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.version).to.be.a('number').and.to.be.at.least(1);",
+                  "  pm.expect(['active','deprecated','draft']).to.include(j.status);",
+                  "});",
+                  "pm.test('Stored version equals {{version}}', function () {",
+                  "  pm.expect(Number(pm.response.json().version)).to.eql(Number(pm.collectionVariables.get('version')));",
+                  "  pm.collectionVariables.set('versioned_skill_id', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 create on historic_version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{historic_version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"VER-{{run_id}}-VH\",\n  \"name\": \"Versioned Skill historic\",\n  \"tenant_id\": \"{{tenant_id}}\",\n  \"version\": \"{{historic_version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Historic version persisted', function () {",
+                  "  pm.expect(Number(pm.response.json().version)).to.eql(Number(pm.collectionVariables.get('historic_version')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills \u2014 filter version={{version}}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills?version={{version}}&limit=100&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('All items are current version', function () {",
+                  "  const v = Number(pm.collectionVariables.get('version'));",
+                  "  pm.response.json().items.forEach(s => pm.expect(s.version).to.eql(v));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills \u2014 filter version={{historic_version}}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{historic_version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills?version={{historic_version}}&limit=100&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{historic_version}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('All items are historic version', function () {",
+                  "  const v = Number(pm.collectionVariables.get('historic_version'));",
+                  "  pm.response.json().items.forEach(s => pm.expect(s.version).to.eql(v));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skills/search \u2014 version-scoped search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills/search?q=Versioned&version={{version}}&limit=50&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Versioned"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('Search results stay on requested version', function () {",
+                  "  const v = Number(pm.collectionVariables.get('version'));",
+                  "  pm.response.json().items.forEach(s => pm.expect(s.version).to.eql(v));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /taxonomy/export \u2014 version={{version}} snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/taxonomy/export?tenant_id={{tenant_id}}&version={{version}}&format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "taxonomy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "tenant_id",
+                  "value": "{{tenant_id}}"
+                },
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('TaxonomyExport schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('tenant_id','version','items');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "});",
+                  "pm.test('Capture current export count', function () {",
+                  "  pm.collectionVariables.set('export_count_current', String(pm.response.json().items.length));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 Tenant Isolation",
+      "description": "Ensure {{tenant_id}} scoping; foreign tenant data is not readable.",
+      "item": [
+        {
+          "name": "GET /skills \u2014 list only returns caller's tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills?version={{version}}&limit=100&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{version}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Paginated skills schema', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.include.keys('items','total','limit','offset');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "  pm.expect(j.total).to.be.a('number');",
+                  "});",
+                  "pm.test('No foreign tenant_id in list', function () {",
+                  "  const tid = pm.collectionVariables.get('tenant_id');",
+                  "  pm.response.json().items.forEach(s => {",
+                  "    pm.expect(s.tenant_id).to.eql(tid);",
+                  "    pm.expect(s.tenant_id).to.not.eql('22222222-2222-4222-8222-222222222222');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /skills \u2014 body tenant_id ignored/overridden by JWT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Taxonomy-Version",
+                "value": "{{version}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "skills"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"ISO-{{run_id}}-X\",\n  \"name\": \"Isolation Probe\",\n  \"tenant_id\": \"22222222-2222-4222-8222-222222222222\",\n  \"version\": \"{{version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Persisted tenant is JWT tenant not body tenant', function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.tenant_id).to.eql(pm.collectionVariables.get('tenant_id'));",
+                  "  pm.expect(j.tenant_id).to.not.eql('22222222-2222-4222-8222-222222222222');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
