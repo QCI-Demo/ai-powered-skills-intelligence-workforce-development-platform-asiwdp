@@ -36,6 +36,14 @@ class Principal:
     def has_role(self, role: str) -> bool:
         return role in self.roles
 
+    def has_any_role(self, roles: tuple[str, ...] | list[str] | frozenset[str]) -> bool:
+        role_set = set(roles)
+        return any(role in role_set for role in self.roles)
+
+    def has_all_roles(self, roles: tuple[str, ...] | list[str] | frozenset[str]) -> bool:
+        role_set = set(self.roles)
+        return all(role in role_set for role in roles)
+
     def require_tenant(self) -> str:
         if not self.tenant_id:
             raise ValueError("Principal has no tenant_id")
