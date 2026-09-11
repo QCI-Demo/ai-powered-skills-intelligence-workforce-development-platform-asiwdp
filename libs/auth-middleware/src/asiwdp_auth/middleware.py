@@ -159,29 +159,71 @@ def require_permission(
                 return _error_response(exc)
             return None
 
-        if asyncio.iscoroutinefunction(func):
-
-            @functools.wraps(func)
-            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                request = _find_request(args, kwargs)
-                denied = _enforce(request)
-                if denied is not None:
-                    return denied
-                return await func(*args, **kwargs)
-
-            return async_wrapper
-
-        @functools.wraps(func)
-        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            request = _find_request(args, kwargs)
-            denied = _enforce(request)
-            if denied is not None:
-                return denied
-            return func(*args, **kwargs)
-
-        return sync_wrapper
+        return _wrap_with_enforcement(func, _enforce)
 
     return decorator
+
+
+def require_role(
+    *roles: str,
+    require_all: bool = False,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator for route handlers that require specific JWT roles (HTTP 403)."""
+
+    if not roles:
+        raise ValueError("require_role expects at least one role name")
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def _enforce(request: Request) -> JSONResponse | None:
+            principal = _get_principal(request)
+            if principal is None:
+                return _error_response(TokenMissingError("Unauthenticated request"))
+            try:
+                principal_roles = tuple(getattr(principal, "roles", ()) or ())
+                if require_all:
+                    missing = [role for role in roles if role not in principal_roles]
+                    if missing:
+                        raise AuthorizationError(
+                            f"Missing required role(s): {', '.join(missing)}"
+                        )
+                elif not any(role in principal_roles for role in roles):
+                    raise AuthorizationError(
+                        f"Requires one of roles: {', '.join(roles)}"
+                    )
+            except AuthorizationError as exc:
+                return _error_response(exc)
+            return None
+
+        return _wrap_with_enforcement(func, _enforce)
+
+    return decorator
+
+
+def _wrap_with_enforcement(
+    func: Callable[..., Any],
+    enforce: Callable[[Request], JSONResponse | None],
+) -> Callable[..., Any]:
+    if asyncio.iscoroutinefunction(func):
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            request = _find_request(args, kwargs)
+            denied = enforce(request)
+            if denied is not None:
+                return denied
+            return await func(*args, **kwargs)
+
+        return async_wrapper
+
+    @functools.wraps(func)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        request = _find_request(args, kwargs)
+        denied = enforce(request)
+        if denied is not None:
+            return denied
+        return func(*args, **kwargs)
+
+    return sync_wrapper
 
 
 def _find_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
@@ -190,4 +232,4 @@ def _find_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
     for arg in args:
         if isinstance(arg, Request):
             return arg
-    raise TypeError("require_permission expects a Starlette Request argument")
+    raise TypeError("Auth decorator expects a Starlette Request argument")

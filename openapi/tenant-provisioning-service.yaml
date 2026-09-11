@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Tenant Provisioning Service
+  version: 1.0.0
+  description: |
+    Automated tenant provisioning with idempotent create, default configuration
+    seeding, PlatformAdmin RBAC (Story S2 middleware), and tenant-scoped
+    provisioning telemetry events.
+servers:
+  - url: /api
+tags:
+  - name: Tenants
+  - name: Health
+paths:
+  /tenants/health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+  /tenants:
+    post:
+      tags: [Tenants]
+      summary: Provision a new tenant (idempotent)
+      description: |
+        Requires JWT with role `PlatformAdmin` (or `platform_admin`).
+        Provide `Idempotency-Key`. Creates tenant + default configuration +
+        metadata atomically and emits `com.asiwdp.tenant.provisioned`.
+      security:
+        - OAuth2Bearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantProvisionRequest"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantProvisionResponse"
+        "200":
+          description: Idempotent replay of a prior successful create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantProvisionResponse"
+        "400":
+          description: Missing/invalid Idempotency-Key or payload
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Slug conflict or idempotency key reuse with different body
+        "422":
+          description: Request validation failed
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 JWT access token. Provisioning requires role PlatformAdmin.
+        Middleware package: `asiwdp-auth` (Story S2).
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Caller is authenticated but lacks PlatformAdmin
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+    TenantProvisionRequest:
+      type: object
+      required: [slug, displayName]
+      additionalProperties: false
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,62}$"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        planCode:
+          type: string
+          default: standard
+        dataResidency:
+          type: string
+          default: us-east
+        configuration:
+          type: object
+          additionalProperties: false
+          properties:
+            locale:
+              type: string
+            timezone:
+              type: string
+            features:
+              type: object
+              additionalProperties:
+                type: boolean
+            privacy:
+              type: object
+            meteringEnabled:
+              type: boolean
+            gdprEnabled:
+              type: boolean
+            ccpaEnabled:
+              type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+    TenantProvisionResponse:
+      type: object
+      required:
+        - tenantId
+        - slug
+        - displayName
+        - status
+        - configuration
+        - created
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+        planCode:
+          type: string
+        dataResidency:
+          type: string
+        createdBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        provisionedAt:
+          type: string
+          format: date-time
+          nullable: true
+        configuration:
+          type: object
+        metadata:
+          type: array
+          items:
+            type: object
+        created:
+          type: boolean
+security:
+  - OAuth2Bearer: []

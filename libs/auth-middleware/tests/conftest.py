@@ -13,7 +13,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from asiwdp_auth import AuthConfig, AuthMiddleware, require_permission
+from asiwdp_auth import AuthConfig, AuthMiddleware, require_permission, require_role
 from asiwdp_auth.rbac import RbacPolicy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -93,6 +93,11 @@ async def _skills_write(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "action": "skills:write"})
 
 
+@require_role("PlatformAdmin", "platform_admin")
+async def _platform_admin_only(request: Request) -> JSONResponse:
+    return JSONResponse({"ok": True, "action": "platform_admin"})
+
+
 async def _health(_: Request) -> JSONResponse:
     return JSONResponse({"status": "up"})
 
@@ -104,6 +109,7 @@ def app_client(auth_config: AuthConfig, rbac_policy: RbacPolicy) -> TestClient:
             Route("/health", _health),
             Route("/api/me", _protected),
             Route("/api/skills", _skills_write, methods=["POST"]),
+            Route("/api/platform", _platform_admin_only, methods=["POST"]),
         ]
     )
     app.add_middleware(
