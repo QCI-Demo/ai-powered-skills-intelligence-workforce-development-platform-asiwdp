@@ -1,0 +1,370 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Integration API Service
+  version: 0.1.0
+  description: |
+    Secured versioned Integration APIs for bidirectional exchange with HRIS,
+    LMS, and third-party content providers.
+
+    ## Security
+    OAuth2 Bearer JWT (RS256 in production). Middleware maps claims to
+    `tenant_id` and `scopes`, then enforces per-route scopes.
+
+    ## Versioning
+    Path prefixes `/api/v1` and `/api/v2`. Every response includes
+    `X-API-Version`.
+servers:
+  - url: /api
+tags:
+  - name: Integration API v1
+  - name: Integration API v2
+  - name: Health
+paths:
+  /v1/health:
+    get:
+      tags: [Health]
+      summary: v1 liveness
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          headers:
+            X-API-Version:
+              schema:
+                type: string
+                example: v1
+  /v1/hris/employees:
+    get:
+      tags: [Integration API v1]
+      summary: List HRIS employees
+      security:
+        - OAuth2Bearer: [hris:read]
+      responses:
+        "200":
+          description: Employee list
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Integration API v1]
+      summary: Ingest HRIS employee
+      security:
+        - OAuth2Bearer: [hris:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeRecord"
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/hris/roles:
+    post:
+      tags: [Integration API v1]
+      summary: Ingest HRIS role
+      security:
+        - OAuth2Bearer: [hris:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleRecord"
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v1/lms/activities:
+    post:
+      tags: [Integration API v1]
+      summary: Ingest LMS learner activity
+      security:
+        - OAuth2Bearer: [lms:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearnerActivityRecord"
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v1/lms/content:
+    get:
+      tags: [Integration API v1]
+      summary: List LMS content
+      security:
+        - OAuth2Bearer: [lms:read]
+      responses:
+        "200":
+          description: Content list
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v1/content/catalog:
+    post:
+      tags: [Integration API v1]
+      summary: Upsert content catalog record
+      security:
+        - OAuth2Bearer: [content:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentCatalogRecord"
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v1/integrations/credentials/rotate:
+    post:
+      tags: [Integration API v1]
+      summary: Rotate integration credential (opaque ref only)
+      security:
+        - OAuth2Bearer: [integrations:credentials:rotate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialRotateRequest"
+      responses:
+        "202":
+          description: Rotation scheduled
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v2/health:
+    get:
+      tags: [Health]
+      summary: v2 liveness
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          headers:
+            X-API-Version:
+              schema:
+                type: string
+                example: v2
+  /v2/hris/employees/batch:
+    post:
+      tags: [Integration API v2]
+      summary: Batch ingest HRIS employees
+      security:
+        - OAuth2Bearer: [hris:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchRequest"
+      responses:
+        "202":
+          description: Batch accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v2/hris/employees/batches/{correlationId}/status:
+    get:
+      tags: [Integration API v2]
+      summary: HRIS batch processing status
+      security:
+        - OAuth2Bearer: [hris:read]
+      parameters:
+        - name: correlationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Status
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v2/lms/activities/batch:
+    post:
+      tags: [Integration API v2]
+      summary: Batch ingest LMS activities
+      security:
+        - OAuth2Bearer: [lms:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchRequest"
+      responses:
+        "202":
+          description: Batch accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+  /v2/content/catalog/batch:
+    post:
+      tags: [Integration API v2]
+      summary: Batch upsert content catalog
+      security:
+        - OAuth2Bearer: [content:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchRequest"
+      responses:
+        "202":
+          description: Batch accepted
+          headers:
+            X-API-Version:
+              $ref: "#/components/headers/ApiVersion"
+components:
+  headers:
+    ApiVersion:
+      description: Negotiated API version for this response
+      schema:
+        type: string
+        enum: [v1, v2]
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Required claims: `sub`, `tenant_id`, `roles`, `scopes`, `iss`, `aud`,
+        `iat`, `exp`. See docs/design/jwt-claim-schema-and-rbac.md.
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but missing required scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+    Envelope:
+      type: object
+      required: [tenantId, sourceSystem, sourceRecordId, idempotencyKey, capturedAt]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        sourceSystem:
+          type: string
+        sourceRecordId:
+          type: string
+        idempotencyKey:
+          type: string
+        capturedAt:
+          type: string
+          format: date-time
+    EmployeeRecord:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [employeeNumber, displayName]
+          properties:
+            employeeNumber:
+              type: string
+            displayName:
+              type: string
+            email:
+              type: string
+            status:
+              type: string
+    RoleRecord:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [roleCode, title]
+          properties:
+            roleCode:
+              type: string
+            title:
+              type: string
+            status:
+              type: string
+    LearnerActivityRecord:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [learnerId, activityType, contentId]
+          properties:
+            learnerId:
+              type: string
+            activityType:
+              type: string
+            contentId:
+              type: string
+            progressPercent:
+              type: number
+    ContentCatalogRecord:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [contentId, title, contentType, provider]
+          properties:
+            contentId:
+              type: string
+            title:
+              type: string
+            contentType:
+              type: string
+            provider:
+              type: string
+    BatchRequest:
+      type: object
+      required: [records]
+      properties:
+        correlationId:
+          type: string
+        records:
+          type: array
+          minItems: 1
+          items:
+            type: object
+    CredentialRotateRequest:
+      type: object
+      required: [provider, credentialRef]
+      properties:
+        provider:
+          type: string
+        credentialRef:
+          type: string
+          description: Opaque secret-manager reference (never a raw secret)
+security:
+  - OAuth2Bearer: []

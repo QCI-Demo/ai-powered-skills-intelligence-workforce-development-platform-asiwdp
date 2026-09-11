@@ -3,17 +3,17 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "asiwdp-auth"
-version = "0.2.0"
-description = "OAuth2/JWT authentication middleware with tenant-scoped RBAC, scope enforcement, and API versioning for ASIWDP micro-services"
+name = "asiwdp-integration-api"
+version = "0.1.0"
+description = "Secured versioned Integration APIs (HRIS, LMS, content) for ASIWDP"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "ASIWDP Platform Team" }]
 dependencies = [
-    "PyJWT[crypto]>=2.8.0",
-    "PyYAML>=6.0",
-    "starlette>=0.27.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +21,8 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "httpx>=0.27.0",
-    "cryptography>=41.0.0",
+    "PyJWT>=2.8.0",
+    "PyYAML>=6.0",
 ]
 
 [project.urls]
@@ -29,6 +30,9 @@ Documentation = "https://github.com/QCI-Demo/ai-powered-skills-intelligence-work
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+asiwdp_integration_api = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

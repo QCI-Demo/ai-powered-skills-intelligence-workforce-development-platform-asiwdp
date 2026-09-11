@@ -54,7 +54,19 @@ permission_catalog:
   - usage:read
   - usage:write
   - usage:admin
-
+  - hris:read
+  - hris:write
+  - hris:admin
+  - lms:read
+  - lms:write
+  - lms:admin
+  - content:read
+  - content:write
+  - content:admin
+  - integrations:read
+  - integrations:write
+  - integrations:admin
+  - integrations:credentials:rotate
 roles:
   platform_admin:
     description: Cross-tenant platform operator (break-glass).
@@ -79,7 +91,11 @@ roles:
       - roles:admin
       - consent:admin
       - usage:admin
-
+      - hris:admin
+      - lms:admin
+      - content:admin
+      - integrations:admin
+      - integrations:credentials:rotate
   org_admin:
     description: Organization administrator within a tenant.
     platform_scoped: false
@@ -177,6 +193,14 @@ roles:
       - progress:write
       - usage:write
       - consent:read
+      - hris:read
+      - hris:write
+      - lms:read
+      - lms:write
+      - content:read
+      - content:write
+      - integrations:read
+      - integrations:write
 
 # Default required scopes documented for OpenAPI / route guards
 service_endpoint_defaults:
@@ -205,3 +229,12 @@ service_endpoint_defaults:
     read: [tenants:read, users:read, organizations:read]
     write: [tenants:write, users:write, organizations:write]
     admin: [tenants:admin, users:admin, organizations:admin, roles:admin]
+  integration-api-service:
+    hris_read: [hris:read]
+    hris_write: [hris:write]
+    lms_read: [lms:read]
+    lms_write: [lms:write]
+    content_read: [content:read]
+    content_write: [content:write]
+    credentials_rotate: [integrations:credentials:rotate]
+    admin: [integrations:admin]
