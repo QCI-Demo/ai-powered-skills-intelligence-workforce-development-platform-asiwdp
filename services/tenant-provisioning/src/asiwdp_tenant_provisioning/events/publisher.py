@@ -1,4 +1,10 @@
-"""Tenant-scoped event bus publishing for provisioning telemetry."""
+"""Tenant-scoped publishing of provisioning events to the telemetry event bus.
+
+Structured events always include:
+* ``tenantId`` — bus partition / isolation key (envelope + payload)
+* ``time`` / ``data.timestamp`` — UTC provisioning timestamp
+* ``data`` — provisioning details (slug, plan, configuration, etc.)
+"""
 
 from __future__ import annotations
 
@@ -29,6 +35,21 @@ def _load_schema() -> dict[str, Any]:
     return _SCHEMA
 
 
+def _assert_tenant_scoped(event: dict[str, Any], *, partition_key: str) -> None:
+    """Fail closed if the event is missing or mismatched tenant scope."""
+    tenant_id = event.get("tenantId")
+    data_tenant_id = (event.get("data") or {}).get("tenantId")
+    subject = event.get("subject") or ""
+    if not tenant_id or not data_tenant_id:
+        raise ValueError("Provisioning telemetry event requires tenantId on envelope and data")
+    if tenant_id != data_tenant_id:
+        raise ValueError("Envelope tenantId must match data.tenantId")
+    if tenant_id != partition_key:
+        raise ValueError("Event bus partition_key must equal tenantId")
+    if subject != f"tenant/{tenant_id}":
+        raise ValueError("Event subject must be tenant/{tenantId}")
+
+
 def build_tenant_provisioned_event(
     provisioned: ProvisionedTenant,
     *,
@@ -37,12 +58,19 @@ def build_tenant_provisioned_event(
     event_id: str | None = None,
     timestamp: datetime | None = None,
 ) -> dict[str, Any]:
-    """Build a CloudEvents-style, tenant-scoped provisioning event."""
+    """Build a CloudEvents-style, tenant-scoped provisioning telemetry event."""
     tenant = provisioned.tenant
     cfg = provisioned.configuration
     ts = timestamp or datetime.now(timezone.utc)
-    time_str = ts.isoformat().replace("+00:00", "Z")
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    time_str = ts.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     tenant_id = str(tenant.tenant_id)
+    provisioned_at = (
+        tenant.provisioned_at.isoformat().replace("+00:00", "Z")
+        if tenant.provisioned_at
+        else time_str
+    )
     event = {
         "specversion": "1.0",
         "id": event_id or str(uuid4()),
@@ -54,16 +82,13 @@ def build_tenant_provisioned_event(
         "tenantId": tenant_id,
         "data": {
             "tenantId": tenant_id,
+            "timestamp": provisioned_at,
             "slug": tenant.slug,
             "displayName": tenant.display_name,
             "status": tenant.status,
             "planCode": tenant.plan_code,
             "dataResidency": tenant.data_residency,
-            "provisionedAt": (
-                tenant.provisioned_at.isoformat().replace("+00:00", "Z")
-                if tenant.provisioned_at
-                else time_str
-            ),
+            "provisionedAt": provisioned_at,
             "createdBy": str(tenant.created_by) if tenant.created_by else None,
             "requestingTenantId": requesting_tenant_id,
             "idempotencyKey": idempotency_key,
@@ -78,17 +103,20 @@ def build_tenant_provisioned_event(
         },
     }
     jsonschema.validate(instance=event, schema=_load_schema())
+    _assert_tenant_scoped(event, partition_key=tenant_id)
     return event
 
 
 class EventBus(Protocol):
+    """Centralized telemetry event bus contract (Kafka/NATS/etc. adapters)."""
+
     def publish(self, channel: str, event: dict[str, Any], *, partition_key: str) -> None:
         ...
 
 
 @dataclass
 class InMemoryEventBus:
-    """Test/local event bus that records published messages."""
+    """Local/test stand-in for the centralized telemetry event bus."""
 
     messages: list[dict[str, Any]] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -96,6 +124,7 @@ class InMemoryEventBus:
     def publish(
         self, channel: str, event: dict[str, Any], *, partition_key: str
     ) -> None:
+        _assert_tenant_scoped(event, partition_key=partition_key)
         with self._lock:
             self.messages.append(
                 {
@@ -120,7 +149,7 @@ class InMemoryEventBus:
 
 
 class TenantProvisioningPublisher:
-    """Publishes tenant.provisioned events after successful creation."""
+    """Publishes tenant.provisioned telemetry after successful tenant creation."""
 
     def __init__(self, bus: EventBus, *, channel: str = EVENT_CHANNEL) -> None:
         self._bus = bus
@@ -139,5 +168,6 @@ class TenantProvisioningPublisher:
             idempotency_key=idempotency_key,
         )
         tenant_id = str(provisioned.tenant.tenant_id)
+        # Tenant-scoped: partition_key == newly provisioned tenantId
         self._bus.publish(self._channel, event, partition_key=tenant_id)
         return event

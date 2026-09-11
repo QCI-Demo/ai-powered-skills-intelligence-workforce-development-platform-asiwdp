@@ -1,8 +1,18 @@
 # Tenant Provisioned Event Schema
 
-**Story task:** `4a9fb493-572e-4e33-bac6-eeb81ba43ec1`
+**Story task:** Publish tenant provisioning event to telemetry
 
-CloudEvents-inspired envelope. Always tenant-scoped via `tenantId` / `data.tenantId`.
+CloudEvents-inspired envelope published to the **centralized telemetry event
+bus** after a successful first-time tenant create. Always tenant-scoped via
+`tenantId` / `data.tenantId` / bus `partition_key`.
+
+## Required fields
+
+| Field | Location | Purpose |
+| --- | --- | --- |
+| `tenantId` | envelope + `data` | Tenant isolation / routing key |
+| `time` / `data.timestamp` | envelope + `data` | UTC provisioning timestamp |
+| provisioning details | `data` | slug, plan, residency, configuration, etc. |
 
 ```json
 {
@@ -16,6 +26,7 @@ CloudEvents-inspired envelope. Always tenant-scoped via `tenantId` / `data.tenan
   "tenantId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   "data": {
     "tenantId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "timestamp": "2026-08-31T08:00:00.000Z",
     "slug": "acme-corp",
     "displayName": "Acme Corp",
     "status": "active",
@@ -39,9 +50,19 @@ CloudEvents-inspired envelope. Always tenant-scoped via `tenantId` / `data.tenan
 
 ## JSON Schema (validation)
 
-See `services/tenant-provisioning/src/asiwdp_tenant_provisioning/events/tenant_provisioned.schema.json`.
+- Canonical contract: `contracts/telemetry/v1/tenant-provisioned.schema.json`
+- Runtime embed: `services/tenant-provisioning/src/asiwdp_tenant_provisioning/events/tenant_provisioned.schema.json`
+
+## Publish lifecycle
+
+1. Persist tenant + default configuration + metadata (idempotent store).
+2. **Only when `created=true`** (first successful create), build and validate
+   the event against the schema.
+3. Publish to the centralized bus with `partition_key = tenantId`.
+4. Idempotent replays (`created=false`) must **not** emit a second event.
 
 ## Bus routing
 
 - Topic / channel: `asiwdp.telemetry.tenant-events`
-- Partition key: `tenantId` (ensures ordered delivery per tenant)
+- Partition key: `tenantId` (ordered delivery per tenant)
+- Subject: `tenant/{tenantId}`

@@ -350,6 +350,10 @@ class TestTenantIsolationAndEvents:
         assert event["tenantId"] == tenant_id
         assert event["data"]["tenantId"] == tenant_id
         assert event["subject"] == f"tenant/{tenant_id}"
+        assert event["time"]  # envelope timestamp
+        assert event["data"]["timestamp"]  # provisioning timestamp
+        assert event["data"]["timestamp"] == event["data"]["provisionedAt"]
+        assert event["data"]["configuration"]["schemaVersion"] == 1
         assert event["data"]["requestingTenantId"] == PLATFORM_TENANT
         assert event["data"]["idempotencyKey"] == admin_headers["Idempotency-Key"]
 

@@ -2,7 +2,20 @@
 
 Idempotent `POST /api/tenants` that creates a tenant record, seeds default
 configuration and metadata, enforces **PlatformAdmin** RBAC via Story S2
-`asiwdp-auth` middleware, and emits a tenant-scoped provisioning event.
+`asiwdp-auth` middleware, and publishes a tenant-scoped provisioning event to
+the centralized telemetry event bus (`asiwdp.telemetry.tenant-events`).
+
+## Telemetry
+
+After a **successful first-time create**, the service emits
+`com.asiwdp.tenant.provisioned` with:
+
+* `tenantId` (envelope + payload) — tenant isolation / bus partition key
+* `time` / `data.timestamp` — UTC provisioning timestamp
+* provisioning details — slug, plan, residency, default configuration, etc.
+
+Idempotent replays do **not** emit a second event. Schema:
+`contracts/telemetry/v1/tenant-provisioned.schema.json`.
 
 ## Security (Story S2 middleware + RBAC)
 
