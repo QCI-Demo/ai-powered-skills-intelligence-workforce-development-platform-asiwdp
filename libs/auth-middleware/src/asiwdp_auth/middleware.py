@@ -19,6 +19,11 @@ from asiwdp_auth.errors import (
 )
 from asiwdp_auth.jwt_verifier import JwtVerifier
 from asiwdp_auth.rbac import RbacPolicy
+from asiwdp_auth.tenant_context import (
+    TenantContext,
+    attach_tenant_context,
+    get_tenant_context,
+)
 
 
 def _extract_bearer_token(authorization: str | None) -> str:
@@ -57,7 +62,13 @@ def _get_principal(request: Request) -> Any:
 
 
 class AuthMiddleware:
-    """Starlette/ASGI middleware that validates JWTs and enforces optional RBAC."""
+    """Starlette/ASGI middleware that validates JWTs and enforces optional RBAC.
+
+    On success the middleware attaches:
+    - ``request.state.principal`` — resolved ``Principal``
+    - ``request.state.tenant_context`` — ``TenantContext`` (tenant_id + scopes)
+    - ``request.state.tenant_id`` / ``request.state.scopes`` — convenience aliases
+    """
 
     def __init__(
         self,
@@ -68,6 +79,7 @@ class AuthMiddleware:
         policy: RbacPolicy | None = None,
         verifier: JwtVerifier | None = None,
         required_permissions: Iterable[str] | None = None,
+        map_tenant_context: bool = True,
     ) -> None:
         if policy is None:
             if rbac_matrix_path is None:
@@ -82,6 +94,7 @@ class AuthMiddleware:
             if required_permissions is not None
             else config.default_required_permissions
         )
+        self.map_tenant_context = map_tenant_context
 
     def _is_public(self, path: str) -> bool:
         for public in self.config.public_paths:
@@ -123,6 +136,13 @@ class AuthMiddleware:
             setattr(state, "principal", principal)
         else:
             state["principal"] = principal  # type: ignore[index]
+
+        if self.map_tenant_context and principal.tenant_id:
+            try:
+                attach_tenant_context(scope, principal)
+            except ValueError:
+                # Platform tokens without tenant remain principal-only
+                pass
 
         await self.app(scope, receive, send)
 
@@ -184,10 +204,65 @@ def require_permission(
     return decorator
 
 
+def require_scope(
+    *scopes: str,
+    require_all: bool = True,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator that enforces OAuth2/JWT scopes via ``TenantContext``."""
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def _enforce(request: Request) -> JSONResponse | None:
+            try:
+                context = get_tenant_context(request)
+                context.require_scopes(*scopes, require_all=require_all)
+            except (AuthenticationError, AuthorizationError, ValueError) as exc:
+                if isinstance(exc, ValueError):
+                    return _error_response(
+                        AuthorizationError(
+                            "Tenant context required for scoped endpoint",
+                            error_code="tenant_required",
+                        )
+                    )
+                return _error_response(exc)
+            return None
+
+        if asyncio.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                request = _find_request(args, kwargs)
+                denied = _enforce(request)
+                if denied is not None:
+                    return denied
+                return await func(*args, **kwargs)
+
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            request = _find_request(args, kwargs)
+            denied = _enforce(request)
+            if denied is not None:
+                return denied
+            return func(*args, **kwargs)
+
+        return sync_wrapper
+
+    return decorator
+
+
 def _find_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
     if "request" in kwargs and isinstance(kwargs["request"], Request):
         return kwargs["request"]
     for arg in args:
         if isinstance(arg, Request):
             return arg
-    raise TypeError("require_permission expects a Starlette Request argument")
+    raise TypeError("require_permission/require_scope expects a Starlette Request")
+
+
+__all__ = [
+    "AuthMiddleware",
+    "TenantContext",
+    "require_permission",
+    "require_scope",
+]

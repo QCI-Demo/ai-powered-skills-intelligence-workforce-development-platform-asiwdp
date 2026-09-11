@@ -11,7 +11,9 @@ tenant-scoped RBAC scope annotations.
 | `progress-tracking-service.yaml` | Progress tracking |
 | `analytics-insights-service.yaml` | Analytics & insights |
 | `tenant-admin-service.yaml` | Tenant / org / user admin |
+| `integration-api-service.yaml` | HRIS / LMS / content Integration APIs (v1/v2) |
 
 All protected operations declare `security` referencing `OAuth2Bearer` and
-document required scopes (e.g. `skills:write`). Claim schema:
-`docs/design/jwt-claim-schema-and-rbac.md`.
+document required scopes (e.g. `skills:write`, `hris:write`). Claim schema:
+`docs/design/jwt-claim-schema-and-rbac.md`. Versioning:
+`docs/design/api-versioning-and-scope-model.md`.
