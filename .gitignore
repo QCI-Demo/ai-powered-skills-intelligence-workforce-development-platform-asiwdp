@@ -20,3 +20,11 @@ __pycache__/
 htmlcov/
 .mypy_cache/
 *.pyc
+
+# Test reports
+reports/
+*-junit.xml
+
+# Local tool binaries
+.k6
+/k6
