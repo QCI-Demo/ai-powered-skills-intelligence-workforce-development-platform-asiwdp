@@ -1,0 +1,17 @@
+apiVersion: v2
+name: competency-service
+description: >
+  Helm chart for the ASIWDP Competency / Skills Framework microservice.
+  Provides tenant-scoped skill taxonomy, proficiency levels, role-to-skill
+  mappings, and CRUD APIs for the Skills Intelligence platform.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - asiwdp
+  - competency
+  - skills
+  - taxonomy
+maintainers:
+  - name: ASIWDP Platform Team
+home: https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp
