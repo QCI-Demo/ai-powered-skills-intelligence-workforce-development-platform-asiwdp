@@ -1,0 +1,23 @@
+[
+  {
+    "code": "IMP-DATA-ANALYSIS",
+    "name": "Data Analysis",
+    "description": "Interpret datasets and produce insights",
+    "category": "Analytical",
+    "status": "active"
+  },
+  {
+    "code": "IMP-CLOUD-ARCH",
+    "name": "Cloud Architecture",
+    "description": "Design multi-tier cloud systems",
+    "category": "Technical",
+    "status": "active"
+  },
+  {
+    "code": "IMP-STAKEHOLDER-MGMT",
+    "name": "Stakeholder Management",
+    "description": "Align stakeholders around outcomes",
+    "category": "Leadership",
+    "status": "active"
+  }
+]

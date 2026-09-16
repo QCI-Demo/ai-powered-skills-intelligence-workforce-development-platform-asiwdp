@@ -8,6 +8,9 @@ venv/
 .env
 .env.local
 
+# Test reports (published from CI artifacts)
+reports/
+
 # Build / IDE
 dist/
 build/

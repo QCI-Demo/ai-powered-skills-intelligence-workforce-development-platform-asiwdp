@@ -1,0 +1,53 @@
+# Staging overrides for competency-service
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+  tag: "staging"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+ingress:
+  enabled: true
+  hosts:
+    - host: competency.staging.asiwdp.example
+      paths:
+        - path: /api/v1
+          pathType: Prefix
+  tls:
+    - secretName: competency-staging-tls
+      hosts:
+        - competency.staging.asiwdp.example
+
+tenant:
+  isolationEnabled: true
+  defaultTenantId: ""
+  cacheMaxTenants: 500
+  cacheTtlSeconds: 180
+
+config:
+  logLevel: info
+  latencyBudgetMs: 50
+  taxonomy:
+    versioningEnabled: true
+    allowBulkImport: true
+    maxBulkRecords: 5000
+  audit:
+    enabled: true
+    retentionDays: 90
+  database:
+    host: postgres.staging.svc.cluster.local
+    port: 5432
+    name: competency_staging
+    sslMode: require
+  redis:
+    enabled: true
+    host: redis.staging.svc.cluster.local
+    port: 6379
+    db: 0

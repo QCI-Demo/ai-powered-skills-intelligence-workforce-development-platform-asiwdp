@@ -1,0 +1,129 @@
+# Default values for competency-service.
+# Override per environment via -f values/<env>.yaml
+
+replicaCount: 2
+
+image:
+  repository: asiwdp/competency-service
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels:
+  app.kubernetes.io/component: competency
+  asiwdp.io/service: competency-service
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+  hosts:
+    - host: competency.asiwdp.local
+      paths:
+        - path: /api/v1
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Tenant-scoped configuration for the competency microservice
+tenant:
+  # Enforce tenant isolation on all data plane requests
+  isolationEnabled: true
+  # Header used to resolve tenant context when not derived from JWT
+  headerName: X-Tenant-ID
+  # Default tenant used only in non-production bootstrap scenarios
+  defaultTenantId: ""
+  # Maximum tenants a single pod may cache metadata for
+  cacheMaxTenants: 1000
+  # TTL (seconds) for tenant metadata cache entries
+  cacheTtlSeconds: 300
+
+config:
+  logLevel: info
+  # Target p99 latency budget for skill/competency read/write paths
+  latencyBudgetMs: 50
+  apiBasePath: /api/v1
+  taxonomy:
+    versioningEnabled: true
+    allowBulkImport: true
+    maxBulkRecords: 5000
+  audit:
+    enabled: true
+    retentionDays: 365
+  database:
+    # Non-secret connection settings; credentials via Secret / envFrom
+    host: ""
+    port: 5432
+    name: competency
+    sslMode: require
+  redis:
+    enabled: true
+    host: ""
+    port: 6379
+    db: 0
+
+env: []
+envFrom: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
