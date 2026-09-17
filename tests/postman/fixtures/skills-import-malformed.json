@@ -1,0 +1,27 @@
+[
+  {
+    "code": "",
+    "name": "Missing Code",
+    "description": "Invalid: empty code"
+  },
+  {
+    "name": "Missing Code Field Entirely"
+  },
+  {
+    "code": "IMP-BAD-VER",
+    "name": "Bad Version Row",
+    "version": 0
+  },
+  {
+    "code": "IMP-BAD-PARENT",
+    "name": "Bad Parent UUID",
+    "parent_skill_id": "not-a-uuid"
+  },
+  {
+    "code": "IMP-OK-PARTIAL",
+    "name": "Valid Row Among Failures",
+    "description": "Should succeed while siblings fail",
+    "category": "Technical",
+    "status": "active"
+  }
+]
