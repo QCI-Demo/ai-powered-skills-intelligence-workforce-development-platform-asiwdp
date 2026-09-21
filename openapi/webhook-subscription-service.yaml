@@ -1,0 +1,645 @@
+openapi: 3.0.3
+info:
+  title: ASIWDP Webhook Subscription Service
+  version: 1.0.0
+  description: |
+    Tenant-controlled outbound event webhook subscription APIs for the
+    AI-Powered Skills Intelligence & Workforce Development Platform (ASIWDP).
+
+    Tenants register HTTPS callback URLs and select integration event types
+    (e.g. employee created, learning content updated). Delivered payloads are
+    signed with HMAC; delivery attempts are retried up to five times with
+    exponential back-off; duplicate deliveries are prevented using event IDs;
+    and per-tenant delivery status is persisted for observability.
+
+    ## Security
+    All endpoints (except health) require an OAuth2 Bearer JWT issued by the
+    platform identity service. Tokens must include `tenant_id`, `roles`, and
+    `scopes`. Tenant-scoped RBAC is enforced by the shared `asiwdp-auth`
+    middleware. Scope keys follow Story 001 (`resource_type:action`); see
+    `docs/design/jwt-claim-schema-and-rbac.md` and
+    `config/rbac/role-permission-matrix.yaml`.
+
+    ## Validation
+    - `targetUrl` must be an absolute HTTPS URI (no credentials, no fragments).
+    - `eventTypes` must be a non-empty subset of the published event catalog.
+servers:
+  - url: /api/v1
+tags:
+  - name: WebhookSubscriptions
+    description: CRUD for tenant webhook subscriptions
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getWebhookServiceHealth
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /webhooks/subscriptions:
+    get:
+      tags: [WebhookSubscriptions]
+      operationId: listWebhookSubscriptions
+      summary: List webhook subscriptions for the caller's tenant
+      description: |
+        Returns all webhook subscriptions belonging to the JWT `tenant_id`.
+        Requires scope/permission `webhooks:read`.
+      security:
+        - OAuth2Bearer: [webhooks:read]
+        - OAuth2ClientCredentials: [webhooks:read]
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: status
+          in: query
+          required: false
+          description: Filter by subscription lifecycle status.
+          schema:
+            $ref: "#/components/schemas/SubscriptionStatus"
+        - name: eventType
+          in: query
+          required: false
+          description: Filter subscriptions that include this event type.
+          schema:
+            $ref: "#/components/schemas/WebhookEventType"
+      responses:
+        "200":
+          description: Paginated subscription list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [WebhookSubscriptions]
+      operationId: createWebhookSubscription
+      summary: Create a webhook subscription
+      description: |
+        Registers a new tenant-scoped webhook subscription. Validates that
+        `targetUrl` is HTTPS and that `eventTypes` are from the allowed catalog.
+        Returns the subscription including a one-time `signingSecret` used for
+        HMAC payload verification. Requires scope/permission `webhooks:write`.
+      security:
+        - OAuth2Bearer: [webhooks:write]
+        - OAuth2ClientCredentials: [webhooks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSubscriptionCreateRequest"
+            examples:
+              hrAndLearning:
+                summary: Subscribe to employee and learning events
+                value:
+                  displayName: HRIS + LMS sync
+                  targetUrl: https://hooks.partner.example/asiwdp/events
+                  eventTypes:
+                    - employee.created
+                    - employee.updated
+                    - learning_content.updated
+                  description: Forward workforce and content changes to partner middleware.
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionCreateResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /webhooks/subscriptions/{subscriptionId}:
+    parameters:
+      - $ref: "#/components/parameters/SubscriptionId"
+    get:
+      tags: [WebhookSubscriptions]
+      operationId: getWebhookSubscription
+      summary: Get a webhook subscription by ID
+      description: |
+        Returns a single subscription in the caller's tenant.
+        The HMAC `signingSecret` is never returned on read.
+        Requires scope/permission `webhooks:read`.
+      security:
+        - OAuth2Bearer: [webhooks:read]
+        - OAuth2ClientCredentials: [webhooks:read]
+      responses:
+        "200":
+          description: Subscription detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [WebhookSubscriptions]
+      operationId: replaceWebhookSubscription
+      summary: Replace a webhook subscription
+      description: |
+        Full replacement of mutable subscription fields. Re-validates
+        `targetUrl` and `eventTypes`. Does not rotate the signing secret.
+        Requires scope/permission `webhooks:write`.
+      security:
+        - OAuth2Bearer: [webhooks:write]
+        - OAuth2ClientCredentials: [webhooks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSubscriptionUpdateRequest"
+      responses:
+        "200":
+          description: Subscription replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [WebhookSubscriptions]
+      operationId: patchWebhookSubscription
+      summary: Partially update a webhook subscription
+      description: |
+        Partial update of mutable fields. When `targetUrl` or `eventTypes`
+        are present they are validated the same way as create/replace.
+        Requires scope/permission `webhooks:write`.
+      security:
+        - OAuth2Bearer: [webhooks:write]
+        - OAuth2ClientCredentials: [webhooks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSubscriptionPatchRequest"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscriptionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [WebhookSubscriptions]
+      operationId: deleteWebhookSubscription
+      summary: Delete a webhook subscription
+      description: |
+        Soft-deletes or permanently removes the subscription for the tenant
+        and stops further deliveries. Requires `webhooks:delete` or
+        `webhooks:admin`.
+      security:
+        - OAuth2Bearer: [webhooks:delete]
+        - OAuth2ClientCredentials: [webhooks:delete]
+      responses:
+        "204":
+          description: Subscription deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /webhooks/subscriptions/{subscriptionId}/secret/rotate:
+    parameters:
+      - $ref: "#/components/parameters/SubscriptionId"
+    post:
+      tags: [WebhookSubscriptions]
+      operationId: rotateWebhookSigningSecret
+      summary: Rotate the HMAC signing secret
+      description: |
+        Issues a new signing secret for the subscription. The previous secret
+        is invalidated immediately. The new secret is returned once in the
+        response body and is never persisted in subsequent reads.
+        Requires scope/permission `webhooks:admin`.
+      security:
+        - OAuth2Bearer: [webhooks:admin]
+        - OAuth2ClientCredentials: [webhooks:admin]
+      responses:
+        "200":
+          description: Secret rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSecretRotateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    OAuth2Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        OAuth2 access token (JWT) per Story 001. Required claims: `sub`,
+        `tenant_id`, `roles`, `scopes`, `iss`, `aud`, `iat`, `exp`.
+        Role-to-permission expansion uses
+        `config/rbac/role-permission-matrix.yaml`. See
+        `docs/design/jwt-claim-schema-and-rbac.md`.
+    OAuth2ClientCredentials:
+      type: oauth2
+      description: |
+        Machine-to-machine client credentials flow for service accounts.
+        Scopes align with Story 001 permission keys (`resource_type:action`).
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.asiwdp.example/oauth/token
+          scopes:
+            webhooks:read: List and read webhook subscriptions
+            webhooks:write: Create and update webhook subscriptions
+            webhooks:delete: Delete webhook subscriptions
+            webhooks:admin: Administer webhooks including secret rotation
+
+  parameters:
+    SubscriptionId:
+      name: subscriptionId
+      in: path
+      required: true
+      description: Tenant-scoped webhook subscription identifier.
+      schema:
+        type: string
+        format: uuid
+    PageLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return (1–100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor from a previous list response.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but lacking required tenant-scoped permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Subscription not found in the caller's tenant
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Conflicting subscription (e.g. duplicate active targetUrl)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: |
+        Request failed schema or business validation (invalid webhook URL,
+        empty/unknown event types, or field constraints).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code.
+          example: unauthorized
+        message:
+          type: string
+          description: Human-readable summary.
+          example: Missing or invalid access token
+
+    ValidationError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            details:
+              type: array
+              description: Field-level validation failures.
+              items:
+                $ref: "#/components/schemas/ValidationIssue"
+
+    ValidationIssue:
+      type: object
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: JSON path of the invalid field.
+          example: targetUrl
+        code:
+          type: string
+          description: Stable validation code.
+          enum:
+            - invalid_url
+            - url_must_be_https
+            - url_credentials_forbidden
+            - url_fragment_forbidden
+            - event_types_required
+            - event_types_unknown
+            - event_types_duplicate
+            - field_required
+            - field_too_long
+          example: url_must_be_https
+        message:
+          type: string
+          example: targetUrl must use the https scheme
+
+    WebhookEventType:
+      type: string
+      description: |
+        Catalog of outbound integration events tenants may subscribe to.
+        Unknown values are rejected with `event_types_unknown`.
+      enum:
+        - employee.created
+        - employee.updated
+        - employee.deactivated
+        - learning_content.created
+        - learning_content.updated
+        - learning_content.retired
+        - skill.created
+        - skill.updated
+        - competency.updated
+        - learning_path.assigned
+        - progress.recorded
+        - recommendation.generated
+
+    SubscriptionStatus:
+      type: string
+      description: Lifecycle status of a webhook subscription.
+      enum:
+        - active
+        - paused
+        - disabled
+
+    HttpsWebhookUrl:
+      type: string
+      format: uri
+      minLength: 12
+      maxLength: 2048
+      pattern: '^https://[A-Za-z0-9._~:/?#\[\]@!$&''()*+,;=%-]+$'
+      description: |
+        Absolute HTTPS callback URL that receives signed webhook POSTs.
+        Validation rules:
+        - Scheme must be `https` (HTTP is rejected).
+        - Must be absolute (`format: uri`).
+        - Userinfo (credentials in the URL) is forbidden.
+        - Fragment identifiers are forbidden.
+        - Length must be ≤ 2048 characters.
+      example: https://hooks.partner.example/asiwdp/events
+
+    WebhookEventTypeSet:
+      type: array
+      description: |
+        Non-empty set of event types. Duplicates are rejected.
+        Every value must exist in `WebhookEventType`.
+      minItems: 1
+      maxItems: 32
+      uniqueItems: true
+      items:
+        $ref: "#/components/schemas/WebhookEventType"
+
+    WebhookSubscriptionCreateRequest:
+      type: object
+      description: Request body to create a tenant webhook subscription.
+      required: [targetUrl, eventTypes]
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Optional human-readable label for the subscription.
+          example: HRIS + LMS sync
+        description:
+          type: string
+          maxLength: 512
+          description: Optional free-text purpose or routing notes.
+        targetUrl:
+          $ref: "#/components/schemas/HttpsWebhookUrl"
+        eventTypes:
+          $ref: "#/components/schemas/WebhookEventTypeSet"
+        status:
+          allOf:
+            - $ref: "#/components/schemas/SubscriptionStatus"
+          description: Initial status; defaults to `active` when omitted.
+          default: active
+
+    WebhookSubscriptionUpdateRequest:
+      type: object
+      description: Full replacement body for an existing subscription.
+      required: [targetUrl, eventTypes, status]
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+        targetUrl:
+          $ref: "#/components/schemas/HttpsWebhookUrl"
+        eventTypes:
+          $ref: "#/components/schemas/WebhookEventTypeSet"
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+
+    WebhookSubscriptionPatchRequest:
+      type: object
+      description: |
+        Partial update. At least one property must be present. Provided
+        `targetUrl` / `eventTypes` are validated identically to create.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+        targetUrl:
+          $ref: "#/components/schemas/HttpsWebhookUrl"
+        eventTypes:
+          $ref: "#/components/schemas/WebhookEventTypeSet"
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+
+    WebhookSubscriptionResponse:
+      type: object
+      description: |
+        Webhook subscription as returned by read/update operations.
+        Does not include the HMAC signing secret.
+      required:
+        - id
+        - tenantId
+        - targetUrl
+        - eventTypes
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Subscription identifier.
+        tenantId:
+          type: string
+          format: uuid
+          description: Owning tenant (always matches JWT `tenant_id`).
+        displayName:
+          type: string
+          maxLength: 128
+          nullable: true
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+        targetUrl:
+          $ref: "#/components/schemas/HttpsWebhookUrl"
+        eventTypes:
+          $ref: "#/components/schemas/WebhookEventTypeSet"
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+          description: Subject (`sub`) that created the subscription.
+        secretLastRotatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last signing-secret rotation, if any.
+
+    WebhookSubscriptionCreateResponse:
+      allOf:
+        - $ref: "#/components/schemas/WebhookSubscriptionResponse"
+        - type: object
+          required: [signingSecret]
+          properties:
+            signingSecret:
+              type: string
+              minLength: 32
+              maxLength: 128
+              description: |
+                One-time HMAC signing secret. Returned only on create (and
+                secret rotation). Clients must store it securely; it is never
+                returned by subsequent GET/list operations and must not be
+                logged.
+              writeOnly: false
+
+    WebhookSubscriptionListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookSubscriptionResponse"
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page; null when no further pages.
+        totalCount:
+          type: integer
+          minimum: 0
+          description: Optional total matching count when available.
+
+    WebhookSecretRotateResponse:
+      type: object
+      required: [id, signingSecret, secretLastRotatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        signingSecret:
+          type: string
+          minLength: 32
+          maxLength: 128
+          description: Newly issued HMAC secret (returned once).
+        secretLastRotatedAt:
+          type: string
+          format: date-time
+
+security:
+  - OAuth2Bearer: []
