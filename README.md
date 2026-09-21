@@ -15,6 +15,7 @@ supporting RBAC / OpenAPI artifacts for story
 | Role → permission matrix | [`config/rbac/role-permission-matrix.yaml`](config/rbac/role-permission-matrix.yaml) |
 | Middleware package | [`libs/auth-middleware/`](libs/auth-middleware/) |
 | Service OpenAPI specs | [`openapi/`](openapi/) |
+| Webhook subscription API | [`openapi/webhook-subscription-service.yaml`](openapi/webhook-subscription-service.yaml) |
 
 ### Install & test
 

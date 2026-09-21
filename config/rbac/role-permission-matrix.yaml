@@ -54,6 +54,10 @@ permission_catalog:
   - usage:read
   - usage:write
   - usage:admin
+  - webhooks:read
+  - webhooks:write
+  - webhooks:delete
+  - webhooks:admin
 
 roles:
   platform_admin:
@@ -79,6 +83,7 @@ roles:
       - roles:admin
       - consent:admin
       - usage:admin
+      - webhooks:admin
 
   org_admin:
     description: Organization administrator within a tenant.
@@ -97,6 +102,8 @@ roles:
       - organizations:write
       - consent:read
       - usage:read
+      - webhooks:read
+      - webhooks:write
 
   skills_manager:
     description: Manages skills framework and competencies.
@@ -177,6 +184,8 @@ roles:
       - progress:write
       - usage:write
       - consent:read
+      - webhooks:read
+      - webhooks:write
 
 # Default required scopes documented for OpenAPI / route guards
 service_endpoint_defaults:
@@ -205,3 +214,8 @@ service_endpoint_defaults:
     read: [tenants:read, users:read, organizations:read]
     write: [tenants:write, users:write, organizations:write]
     admin: [tenants:admin, users:admin, organizations:admin, roles:admin]
+  webhook-subscription-service:
+    read: [webhooks:read]
+    write: [webhooks:write]
+    delete: [webhooks:delete]
+    admin: [webhooks:admin]

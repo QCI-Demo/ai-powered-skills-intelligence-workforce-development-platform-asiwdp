@@ -126,6 +126,7 @@ Permission keys follow `resource_type:action` (aligned with EIAMS
 | Tenant Admin / IAM edge | `tenants`, `users`, `organizations`, `roles` | `read`, `write`, `delete`, `admin` |
 | Privacy / Consent | `consent` | `read`, `write`, `admin` |
 | Usage Metering | `usage` | `read`, `write`, `admin` |
+| Webhook Subscriptions | `webhooks` | `read`, `write`, `delete`, `admin` |
 
 Full role → permission mappings live in
 [`config/rbac/role-permission-matrix.yaml`](../../config/rbac/role-permission-matrix.yaml).
