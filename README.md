@@ -16,6 +16,18 @@ supporting RBAC / OpenAPI artifacts for story
 | Middleware package | [`libs/auth-middleware/`](libs/auth-middleware/) |
 | Service OpenAPI specs | [`openapi/`](openapi/) |
 
+## Messaging Queues & Secret Store
+
+RabbitMQ (Helm) plus AWS Secrets Manager (Terraform) for the outbound webhook
+service: delivery retries / DLQ and tenant HMAC signing keys restricted to
+`webhook-service` via IRSA.
+
+| Artifact | Path |
+|----------|------|
+| Design notes | [`docs/infra/messaging-queues-and-secret-store.md`](docs/infra/messaging-queues-and-secret-store.md) |
+| Terraform modules & env stacks | [`terraform/`](terraform/) |
+| RabbitMQ Helm chart + env values | [`charts/rabbitmq/`](charts/rabbitmq/) |
+
 ### Install & test
 
 ```bash

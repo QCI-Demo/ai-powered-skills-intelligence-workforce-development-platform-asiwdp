@@ -1,0 +1,53 @@
+# Staging overrides for ASIWDP RabbitMQ webhook delivery queue
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+  tag: "3.13.2-management-alpine"
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 384Mi
+  limits:
+    cpu: 750m
+    memory: 768Mi
+
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: gp3
+
+auth:
+  createSecret: false
+  existingSecret: "asiwdp-rabbitmq-auth-staging"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+
+config:
+  memoryHighWatermark: "0.6"
+  consumerTimeoutMs: 1800000
+  clusterPartitionHandling: pause_minority
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: rabbitmq
+          topologyKey: kubernetes.io/hostname
+
+asiwdp:
+  environment: staging
+  vhost: asiwdp
+  webhook:
+    maxDeliveryAttempts: 5
+    retryDelayMs: 5000
+    messageTtlMs: 86400000

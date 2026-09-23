@@ -1,0 +1,41 @@
+# Development overrides for ASIWDP RabbitMQ webhook delivery queue
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+  tag: "3.13.2-management-alpine"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  size: 2Gi
+
+auth:
+  createSecret: false
+  existingSecret: "asiwdp-rabbitmq-auth-dev"
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+config:
+  memoryHighWatermark: "0.7"
+  consumerTimeoutMs: 900000
+  clusterPartitionHandling: ignore
+
+asiwdp:
+  environment: dev
+  vhost: asiwdp
+  webhook:
+    maxDeliveryAttempts: 5
+    retryDelayMs: 2000
+    messageTtlMs: 3600000

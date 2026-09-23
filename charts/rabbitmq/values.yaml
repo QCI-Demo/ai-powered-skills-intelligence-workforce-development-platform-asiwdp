@@ -1,0 +1,123 @@
+# Default values for ASIWDP RabbitMQ (webhook delivery queue).
+# Override per environment via -f values/<env>.yaml
+
+replicaCount: 1
+
+image:
+  repository: rabbitmq
+  pullPolicy: IfNotPresent
+  tag: "3.13.2-management-alpine"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  asiwdp.io/purpose: webhook-delivery-queue
+
+podLabels:
+  app.kubernetes.io/component: messaging-queue
+  asiwdp.io/service: rabbitmq
+
+podSecurityContext:
+  fsGroup: 999
+  runAsNonRoot: true
+  runAsUser: 999
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  amqpPort: 5672
+  managementPort: 15672
+  metricsPort: 15692
+
+auth:
+  # Prefer an externally managed Secret (External Secrets / Sealed Secrets).
+  # createSecret=true is for local bootstrap only and requires password via --set.
+  createSecret: false
+  existingSecret: "asiwdp-rabbitmq-auth"
+  username: webhook_worker
+  password: ""
+  erlangCookie: ""
+  usernameKey: username
+  passwordKey: password
+  erlangCookieKey: erlangCookie
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 8Gi
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readiness:
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+config:
+  memoryHighWatermark: "0.6"
+  consumerTimeoutMs: 1800000
+  clusterPartitionHandling: pause_minority
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  allowedClientNamespaces:
+    - namespaceSelector:
+        matchLabels:
+          asiwdp.io/workload: webhook-service
+  allowedObservabilityNamespaces:
+    - namespaceSelector:
+        matchLabels:
+          asiwdp.io/workload: observability
+
+# ASIWDP webhook delivery topology (loaded as RabbitMQ definitions)
+asiwdp:
+  environment: ""
+  vhost: asiwdp
+  webhook:
+    exchange: asiwdp.webhooks.delivery
+    deadLetterExchange: asiwdp.webhooks.delivery.dlx
+    retryExchange: asiwdp.webhooks.delivery.retry
+    workQueue: asiwdp.webhooks.delivery.work
+    deadLetterQueue: asiwdp.webhooks.delivery.dlq
+    retryQueue: asiwdp.webhooks.delivery.retry
+    maxDeliveryAttempts: 5
+    # Base delay for exponential back-off hop through the retry queue.
+    # Workers publish to retryExchange with attempt-scaled TTL overrides when supported.
+    retryDelayMs: 5000
+    messageTtlMs: 86400000
+
+extraEnv: []
+nodeSelector: {}
+tolerations: []
+affinity: {}

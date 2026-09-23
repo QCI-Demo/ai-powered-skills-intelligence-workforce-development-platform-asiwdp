@@ -1,0 +1,20 @@
+project     = "asiwdp"
+environment = "dev"
+aws_region  = "us-east-1"
+
+messaging_namespace    = "asiwdp-messaging"
+rabbitmq_release_name  = "asiwdp-rabbitmq"
+
+webhook_service_name           = "webhook-service"
+webhook_service_namespace      = "asiwdp-webhooks"
+webhook_service_account_name   = "webhook-service"
+secret_recovery_window_in_days = 0
+
+# Replace with the target EKS cluster OIDC values before apply.
+oidc_provider_arn = "arn:aws:iam::000000000000:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"
+oidc_provider_url = "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"
+
+tags = {
+  CostCenter = "asiwdp-integrations"
+  Owner      = "platform"
+}
