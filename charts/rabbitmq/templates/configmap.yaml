@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rabbitmq.fullname" . }}-config
+  labels:
+    {{- include "rabbitmq.labels" . | nindent 4 }}
+data:
+  enabled_plugins: |
+    [rabbitmq_management,rabbitmq_prometheus].
+  rabbitmq.conf: |
+    loopback_users.guest = false
+    listeners.tcp.default = {{ .Values.service.amqpPort }}
+    management.tcp.port = {{ .Values.service.managementPort }}
+    disk_free_limit.relative = 1.5
+    vm_memory_high_watermark.relative = {{ .Values.config.memoryHighWatermark }}
+    consumer_timeout = {{ .Values.config.consumerTimeoutMs }}
+    {{- if .Values.config.clusterPartitionHandling }}
+    cluster_partition_handling = {{ .Values.config.clusterPartitionHandling }}
+    {{- end }}
+  definitions.json: |
+    {
+      "vhosts": [
+        { "name": "{{ .Values.asiwdp.vhost }}" }
+      ],
+      "permissions": [
+        {
+          "user": "{{ .Values.auth.username }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "configure": ".*",
+          "write": ".*",
+          "read": ".*"
+        }
+      ],
+      "exchanges": [
+        {
+          "name": "{{ .Values.asiwdp.webhook.exchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "type": "topic",
+          "durable": true,
+          "auto_delete": false
+        },
+        {
+          "name": "{{ .Values.asiwdp.webhook.deadLetterExchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "type": "topic",
+          "durable": true,
+          "auto_delete": false
+        },
+        {
+          "name": "{{ .Values.asiwdp.webhook.retryExchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "type": "topic",
+          "durable": true,
+          "auto_delete": false
+        }
+      ],
+      "queues": [
+        {
+          "name": "{{ .Values.asiwdp.webhook.workQueue }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "durable": true,
+          "auto_delete": false,
+          "arguments": {
+            "x-dead-letter-exchange": "{{ .Values.asiwdp.webhook.deadLetterExchange }}",
+            "x-dead-letter-routing-key": "webhook.delivery.failed",
+            "x-message-ttl": {{ .Values.asiwdp.webhook.messageTtlMs }}
+          }
+        },
+        {
+          "name": "{{ .Values.asiwdp.webhook.deadLetterQueue }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "durable": true,
+          "auto_delete": false
+        },
+        {
+          "name": "{{ .Values.asiwdp.webhook.retryQueue }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "durable": true,
+          "auto_delete": false,
+          "arguments": {
+            "x-dead-letter-exchange": "{{ .Values.asiwdp.webhook.exchange }}",
+            "x-dead-letter-routing-key": "webhook.delivery",
+            "x-message-ttl": {{ .Values.asiwdp.webhook.retryDelayMs }}
+          }
+        }
+      ],
+      "bindings": [
+        {
+          "source": "{{ .Values.asiwdp.webhook.exchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "destination": "{{ .Values.asiwdp.webhook.workQueue }}",
+          "destination_type": "queue",
+          "routing_key": "webhook.delivery"
+        },
+        {
+          "source": "{{ .Values.asiwdp.webhook.deadLetterExchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "destination": "{{ .Values.asiwdp.webhook.deadLetterQueue }}",
+          "destination_type": "queue",
+          "routing_key": "webhook.delivery.failed"
+        },
+        {
+          "source": "{{ .Values.asiwdp.webhook.retryExchange }}",
+          "vhost": "{{ .Values.asiwdp.vhost }}",
+          "destination": "{{ .Values.asiwdp.webhook.retryQueue }}",
+          "destination_type": "queue",
+          "routing_key": "webhook.delivery.retry"
+        }
+      ]
+    }

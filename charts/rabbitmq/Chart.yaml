@@ -1,0 +1,17 @@
+apiVersion: v2
+name: rabbitmq
+description: >
+  Helm chart for the ASIWDP RabbitMQ message queue used by the outbound
+  webhook delivery service (HMAC-signed payloads, up to five retries with
+  exponential back-off, and a dead-letter queue for exhausted attempts).
+type: application
+version: 0.1.0
+appVersion: "3.13.2"
+keywords:
+  - asiwdp
+  - rabbitmq
+  - messaging
+  - webhooks
+maintainers:
+  - name: ASIWDP Platform Team
+home: https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp

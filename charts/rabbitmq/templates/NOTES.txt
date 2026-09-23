@@ -1,0 +1,15 @@
+1. RabbitMQ {{ .Chart.AppVersion }} release "{{ .Release.Name }}" is installed in namespace "{{ .Release.Namespace }}".
+
+2. AMQP endpoint (webhook workers):
+   {{ include "rabbitmq.fullname" . }}-client.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.amqpPort }}
+
+3. Webhook delivery topology (vhost={{ .Values.asiwdp.vhost }}):
+   - exchange:  {{ .Values.asiwdp.webhook.exchange }}
+   - work:      {{ .Values.asiwdp.webhook.workQueue }}
+   - retry:     {{ .Values.asiwdp.webhook.retryQueue }} (TTL {{ .Values.asiwdp.webhook.retryDelayMs }}ms → requeue)
+   - DLQ:       {{ .Values.asiwdp.webhook.deadLetterQueue }}
+   - max tries: {{ .Values.asiwdp.webhook.maxDeliveryAttempts }}
+
+4. Broker credentials come from Secret "{{ default (printf "%s-auth" (include "rabbitmq.fullname" .)) .Values.auth.existingSecret }}".
+   Tenant webhook HMAC signing keys are NOT stored here — they live in AWS Secrets Manager
+   under asiwdp/<env>/webhooks/ and are accessible only by webhook-service IRSA.
