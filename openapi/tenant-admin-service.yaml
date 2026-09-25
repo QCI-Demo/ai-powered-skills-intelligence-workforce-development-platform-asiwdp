@@ -1,15 +1,18 @@
 openapi: 3.0.3
 info:
   title: ASIWDP Tenant Admin Service
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Tenant, organization, and user administration edge APIs. Protected by
     OAuth2/JWT with tenant-scoped RBAC. Platform-scoped `platform_admin`
     tokens may operate cross-tenant when explicitly enabled.
+
+    Includes automated tenant provisioning with idempotent endpoints.
 servers:
   - url: /api/v1
 tags:
   - name: Tenants
+  - name: Provisioning
   - name: Organizations
   - name: Users
   - name: Roles
@@ -23,6 +26,123 @@ paths:
       responses:
         "200":
           description: Service is healthy
+
+  /tenants:
+    post:
+      tags: [Provisioning]
+      summary: Provision a new tenant
+      operationId: createTenant
+      description: |
+        Create a new tenant with default configuration. Requires `platform_admin`
+        role or `tenants:admin` permission.
+
+        **Idempotency**: Include `Idempotency-Key` header for safe retries.
+        If the same key is reused with identical payload, returns cached response.
+        If reused with different payload, returns 409 Conflict.
+      security:
+        - OAuth2Bearer: [tenants:admin]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: Unique key for idempotent request replay (recommended UUID)
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Tenant created successfully
+          headers:
+            X-Idempotent-Replay:
+              description: Set to "true" if response was cached from idempotency key
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTenantResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /tenants/{tenantId}:
+    get:
+      tags: [Tenants]
+      summary: Get tenant by ID
+      operationId: getTenant
+      description: Requires `tenants:read` permission.
+      security:
+        - OAuth2Bearer: [tenants:read]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /tenants/{tenantId}/configurations:
+    get:
+      tags: [Tenants]
+      summary: Get tenant configurations
+      operationId: getTenantConfigurations
+      description: Retrieve configuration entries for a tenant. Requires `tenants:read`.
+      security:
+        - OAuth2Bearer: [tenants:read]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConfigCategory"
+      responses:
+        "200":
+          description: Configuration list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantConfiguration"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /tenants/me:
     get:
       tags: [Tenants]
@@ -33,6 +153,10 @@ paths:
       responses:
         "200":
           description: Tenant profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -50,6 +174,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
   /organizations:
     get:
       tags: [Organizations]
@@ -75,6 +200,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
   /users:
     get:
       tags: [Users]
@@ -100,6 +226,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
   /roles:
     get:
       tags: [Roles]
@@ -126,6 +253,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     OAuth2Bearer:
@@ -154,6 +282,7 @@ components:
             roles:read: Read roles
             roles:write: Manage role bindings
             roles:admin: Full role administration
+
   responses:
     Unauthorized:
       description: Missing, expired, or invalid JWT
@@ -167,6 +296,31 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request payload
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Resource already exists or idempotency conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
     Error:
       type: object
@@ -176,5 +330,118 @@ components:
           type: string
         message:
           type: string
+        details:
+          type: object
+
+    PlanTier:
+      type: string
+      enum: [free, starter, professional, enterprise, custom]
+      description: Subscription plan tier
+
+    TenantStatus:
+      type: string
+      enum: [pending, active, suspended, deprovisioned, failed]
+      description: Tenant lifecycle status
+
+    ConfigCategory:
+      type: string
+      enum: [general, security, integration, feature_flags, branding, notifications, compliance]
+      description: Configuration category
+
+    CreateTenantRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: "^[a-z0-9][a-z0-9\\-_]*[a-z0-9]$|^[a-z0-9]$"
+          description: Unique tenant name (slug-like, lowercase)
+        display_name:
+          type: string
+          maxLength: 500
+          description: Human-readable display name
+        domain:
+          type: string
+          maxLength: 255
+          description: Custom domain for tenant
+        plan_tier:
+          $ref: "#/components/schemas/PlanTier"
+        settings:
+          type: object
+          description: Initial tenant settings
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Arbitrary key-value metadata
+
+    Tenant:
+      type: object
+      required: [tenant_id, name, status, plan_tier, created_at, created_by]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        domain:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        plan_tier:
+          $ref: "#/components/schemas/PlanTier"
+        settings:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        provisioned_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TenantConfiguration:
+      type: object
+      required: [config_id, config_key, config_value, category, is_active, version]
+      properties:
+        config_id:
+          type: string
+          format: uuid
+        config_key:
+          type: string
+        config_value:
+          description: Configuration value (any JSON type)
+        category:
+          $ref: "#/components/schemas/ConfigCategory"
+        is_active:
+          type: boolean
+        version:
+          type: integer
+
+    CreateTenantResponse:
+      type: object
+      required: [tenant, configurations, idempotent]
+      properties:
+        tenant:
+          $ref: "#/components/schemas/Tenant"
+        configurations:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantConfiguration"
+        idempotent:
+          type: boolean
+          description: True if response was cached from idempotency key
+
 security:
   - OAuth2Bearer: []
