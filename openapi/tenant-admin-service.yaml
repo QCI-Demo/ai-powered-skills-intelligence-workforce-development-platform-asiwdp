@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: ASIWDP Tenant Admin Service
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Tenant, organization, and user administration edge APIs. Protected by
     OAuth2/JWT with tenant-scoped RBAC. Platform-scoped `platform_admin`
@@ -10,6 +10,7 @@ servers:
   - url: /api/v1
 tags:
   - name: Tenants
+  - name: Provisioning
   - name: Organizations
   - name: Users
   - name: Roles
@@ -23,6 +24,95 @@ paths:
       responses:
         "200":
           description: Service is healthy
+  /tenants:
+    post:
+      tags: [Provisioning]
+      operationId: createTenant
+      summary: Provision a new tenant
+      description: |
+        Creates a new tenant with default configuration. Requires `platform_admin` role.
+        Supports idempotent requests via the `Idempotency-Key` header.
+        
+        **Story:** Build Automated Tenant Provisioning and Configuration Service
+        **Task:** 78cab998-3bb5-4262-bc80-e2160bdc2805
+      security:
+        - OAuth2Bearer: [tenants:admin]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Client-generated UUID for idempotent requests. If a request with the same
+            key was already processed, returns the cached response (HTTP 200) instead
+            of creating a duplicate tenant. Recommended for all provisioning calls.
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+            examples:
+              minimal:
+                summary: Minimal request
+                value:
+                  name: "Acme Corp"
+                  slug: "acme-corp"
+              withMetadata:
+                summary: With metadata
+                value:
+                  name: "Acme Corp"
+                  slug: "acme-corp"
+                  metadata:
+                    industry: "Technology"
+                    region: "us-west-2"
+              withConfiguration:
+                summary: With custom configuration
+                value:
+                  name: "Enterprise Tenant"
+                  slug: "enterprise-tenant"
+                  metadata:
+                    tier: "enterprise"
+                  configuration:
+                    featureFlags:
+                      aiRecommendations: true
+                      advancedAnalytics: true
+                      ssoEnabled: true
+                    limits:
+                      maxUsers: 500
+                      maxOrganizations: 50
+      responses:
+        "201":
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "200":
+          description: Idempotent replay - returning cached response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Conflict - slug already exists or idempotency key mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /tenants/me:
     get:
       tags: [Tenants]
@@ -176,5 +266,194 @@ components:
           type: string
         message:
           type: string
+        details:
+          type: object
+    CreateTenantRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Tenant display name
+          example: "Acme Corp"
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 128
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+          description: URL-safe unique tenant identifier (lowercase, no consecutive hyphens)
+          example: "acme-corp"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional key-value metadata
+          example:
+            industry: "Technology"
+            region: "us-west-2"
+        configuration:
+          $ref: "#/components/schemas/TenantConfiguration"
+    TenantConfiguration:
+      type: object
+      properties:
+        featureFlags:
+          $ref: "#/components/schemas/FeatureFlags"
+        limits:
+          $ref: "#/components/schemas/UsageLimits"
+        branding:
+          $ref: "#/components/schemas/Branding"
+        integrations:
+          $ref: "#/components/schemas/Integrations"
+        version:
+          type: integer
+          minimum: 1
+          default: 1
+    FeatureFlags:
+      type: object
+      properties:
+        aiRecommendations:
+          type: boolean
+          default: true
+        advancedAnalytics:
+          type: boolean
+          default: false
+        customBranding:
+          type: boolean
+          default: false
+        ssoEnabled:
+          type: boolean
+          default: false
+        apiAccess:
+          type: boolean
+          default: true
+      additionalProperties:
+        type: boolean
+    UsageLimits:
+      type: object
+      properties:
+        maxUsers:
+          type: integer
+          minimum: 1
+          default: 50
+        maxOrganizations:
+          type: integer
+          minimum: 1
+          default: 5
+        maxSkills:
+          type: integer
+          minimum: 1
+          default: 500
+        maxLearningPaths:
+          type: integer
+          minimum: 1
+          default: 100
+        storageQuotaMb:
+          type: integer
+          minimum: 0
+          default: 1024
+        apiRateLimitPerMinute:
+          type: integer
+          minimum: 1
+          default: 1000
+    Branding:
+      type: object
+      properties:
+        logoUrl:
+          type: string
+          nullable: true
+        faviconUrl:
+          type: string
+          nullable: true
+        primaryColor:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          default: "#1976D2"
+        secondaryColor:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          default: "#424242"
+        customCss:
+          type: string
+          nullable: true
+    Integrations:
+      type: object
+      properties:
+        sso:
+          $ref: "#/components/schemas/IntegrationConfig"
+        lms:
+          $ref: "#/components/schemas/IntegrationConfig"
+    IntegrationConfig:
+      type: object
+      nullable: true
+      properties:
+        provider:
+          type: string
+        enabled:
+          type: boolean
+          default: false
+    TenantResponse:
+      type: object
+      required: [id, name, slug, status, configuration, createdAt, createdBy]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique tenant identifier
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [provisioning, active, suspended, deleted]
+        configuration:
+          $ref: "#/components/schemas/TenantConfiguration"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdBy:
+          type: string
+          description: Subject ID of the user who created the tenant
+    TenantProvisionedEvent:
+      type: object
+      description: |
+        Event emitted when a tenant is successfully provisioned.
+        Task: 4a9fb493-572e-4e33-bac6-eeb81ba43ec1
+      required: [eventType, eventId, timestamp, tenantId, tenantSlug, tenantName, createdBy, configurationVersion]
+      properties:
+        eventType:
+          type: string
+          enum: ["tenant.provisioned"]
+        eventId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        tenantId:
+          type: string
+          format: uuid
+        tenantSlug:
+          type: string
+        tenantName:
+          type: string
+        createdBy:
+          type: string
+        configurationVersion:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
 security:
   - OAuth2Bearer: []
