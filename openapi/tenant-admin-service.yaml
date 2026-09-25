@@ -23,6 +23,119 @@ paths:
       responses:
         "200":
           description: Service is healthy
+  /tenants:
+    post:
+      tags: [Tenants]
+      summary: Provision a new tenant
+      operationId: createTenant
+      description: |
+        Create a new tenant with default configuration. Requires `platform_admin`
+        role or `tenants:admin` permission.
+        
+        **Idempotency**: Provide an `Idempotency-Key` header to enable idempotent
+        behavior. If the same key is used with an identical request body within
+        24 hours, the original response is returned without creating a duplicate.
+        
+        **Events**: On successful provisioning, a `tenant.provisioning.completed`
+        event is emitted to the centralized event bus.
+      security:
+        - OAuth2Bearer: [tenants:admin]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Client-provided idempotency key for replay protection
+          schema:
+            type: string
+            maxLength: 255
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          description: Correlation ID for distributed tracing
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+            example:
+              name: "Acme Corporation"
+              slug: "acme-corp"
+              display_name: "Acme Corp"
+              tier: "professional"
+              contact_email: "admin@acme.example.com"
+              metadata:
+                industry: "technology"
+      responses:
+        "201":
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantProvisioningResponse"
+        "200":
+          description: Idempotent response (tenant already exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantProvisioningResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Tenant already exists or idempotency key mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Request body validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /tenants/{tenantId}:
+    get:
+      tags: [Tenants]
+      summary: Get tenant by ID
+      operationId: getTenant
+      description: Retrieve tenant details. Requires `tenants:read` permission.
+      security:
+        - OAuth2Bearer: [tenants:read]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /tenants/me:
     get:
       tags: [Tenants]
@@ -168,6 +281,130 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    CreateTenantRequest:
+      type: object
+      required:
+        - name
+        - slug
+        - contact_email
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Unique tenant name
+          example: "Acme Corporation"
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 100
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+          description: URL-safe identifier (lowercase, alphanumeric, hyphens)
+          example: "acme-corp"
+        display_name:
+          type: string
+          maxLength: 255
+          description: Optional friendly display name
+          example: "Acme Corp"
+        tier:
+          type: string
+          enum: [free, standard, professional, enterprise]
+          default: standard
+          description: Subscription tier
+        contact_email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Primary contact email
+          example: "admin@acme.example.com"
+        owner_user_id:
+          type: string
+          format: uuid
+          description: UUID of the initial admin user
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Extensible attributes
+    TenantResponse:
+      type: object
+      required:
+        - tenant_id
+        - name
+        - slug
+        - status
+        - tier
+        - contact_email
+        - created_at
+        - updated_at
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+          description: Unique tenant identifier
+        name:
+          type: string
+          description: Tenant name
+        slug:
+          type: string
+          description: URL-safe identifier
+        display_name:
+          type: string
+          nullable: true
+          description: Friendly display name
+        status:
+          type: string
+          enum: [provisioning, active, suspended, deprovisioning, deleted]
+          description: Lifecycle status
+        tier:
+          type: string
+          enum: [free, standard, professional, enterprise]
+          description: Subscription tier
+        owner_user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Initial admin user ID
+        contact_email:
+          type: string
+          format: email
+          description: Primary contact email
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Custom attributes
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        provisioned_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Provisioning completion timestamp
+        provisioned_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: User who provisioned the tenant
+    TenantProvisioningResponse:
+      type: object
+      required:
+        - tenant
+        - idempotent
+        - message
+      properties:
+        tenant:
+          $ref: "#/components/schemas/TenantResponse"
+        idempotent:
+          type: boolean
+          description: True if response was retrieved from idempotency cache
+        message:
+          type: string
+          description: Human-readable status message
     Error:
       type: object
       required: [error, message]

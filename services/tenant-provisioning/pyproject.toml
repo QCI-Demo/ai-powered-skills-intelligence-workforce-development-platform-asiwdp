@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asiwdp-tenant-provisioning"
+version = "1.0.0"
+description = "Automated tenant provisioning service for ASIWDP"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Chloe Zhang", email = "chloe.zhang@asiwdp.example"}
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "pydantic>=2.5.0",
+    "uvicorn[standard]>=0.25.0",
+    "httpx>=0.26.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+]
+postgres = [
+    "asyncpg>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+]
+mongodb = [
+    "motor>=3.3.0",
+]
+
+[project.urls]
+Repository = "https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["services.tenant_provisioning*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["services/tenant_provisioning"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
