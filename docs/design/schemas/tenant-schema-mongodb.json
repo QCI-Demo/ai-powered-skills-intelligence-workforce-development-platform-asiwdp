@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ASIWDP Tenant Provisioning MongoDB Schema",
+  "description": "MongoDB collection schemas for tenant provisioning service. Task: 89d8dbba-19a6-4a35-8382-d1be49c1fcf0",
+  "collections": {
+    "tenants": {
+      "description": "Core tenant collection with tenant_id as partition key (_id)",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "title": "Tenant",
+          "required": ["_id", "name", "slug", "status", "configuration", "createdAt", "createdBy"],
+          "properties": {
+            "_id": {
+              "bsonType": "string",
+              "description": "Tenant ID (UUID format) - serves as partition key"
+            },
+            "name": {
+              "bsonType": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "description": "Tenant display name"
+            },
+            "slug": {
+              "bsonType": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,126}[a-z0-9]$",
+              "description": "URL-safe unique tenant identifier"
+            },
+            "status": {
+              "bsonType": "string",
+              "enum": ["provisioning", "active", "suspended", "deleted"],
+              "description": "Tenant lifecycle status"
+            },
+            "configuration": {
+              "bsonType": "object",
+              "required": ["featureFlags", "limits", "branding", "integrations", "version"],
+              "properties": {
+                "featureFlags": {
+                  "bsonType": "object",
+                  "description": "Feature toggle settings",
+                  "properties": {
+                    "aiRecommendations": { "bsonType": "bool" },
+                    "advancedAnalytics": { "bsonType": "bool" },
+                    "customBranding": { "bsonType": "bool" },
+                    "ssoEnabled": { "bsonType": "bool" },
+                    "apiAccess": { "bsonType": "bool" }
+                  },
+                  "additionalProperties": { "bsonType": "bool" }
+                },
+                "limits": {
+                  "bsonType": "object",
+                  "description": "Usage limits for the tenant",
+                  "properties": {
+                    "maxUsers": { "bsonType": "int", "minimum": 1 },
+                    "maxOrganizations": { "bsonType": "int", "minimum": 1 },
+                    "maxSkills": { "bsonType": "int", "minimum": 1 },
+                    "maxLearningPaths": { "bsonType": "int", "minimum": 1 },
+                    "storageQuotaMb": { "bsonType": "int", "minimum": 0 },
+                    "apiRateLimitPerMinute": { "bsonType": "int", "minimum": 1 }
+                  }
+                },
+                "branding": {
+                  "bsonType": "object",
+                  "description": "Tenant branding customization",
+                  "properties": {
+                    "logoUrl": { "bsonType": ["string", "null"] },
+                    "faviconUrl": { "bsonType": ["string", "null"] },
+                    "primaryColor": { "bsonType": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                    "secondaryColor": { "bsonType": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                    "customCss": { "bsonType": ["string", "null"] }
+                  }
+                },
+                "integrations": {
+                  "bsonType": "object",
+                  "description": "Third-party integration configurations",
+                  "properties": {
+                    "sso": {
+                      "bsonType": ["object", "null"],
+                      "properties": {
+                        "provider": { "bsonType": "string" },
+                        "enabled": { "bsonType": "bool" }
+                      }
+                    },
+                    "lms": {
+                      "bsonType": ["object", "null"],
+                      "properties": {
+                        "provider": { "bsonType": "string" },
+                        "enabled": { "bsonType": "bool" }
+                      }
+                    }
+                  }
+                },
+                "version": {
+                  "bsonType": "int",
+                  "minimum": 1,
+                  "description": "Optimistic concurrency version"
+                }
+              }
+            },
+            "metadata": {
+              "bsonType": "object",
+              "description": "Extensible key-value metadata",
+              "additionalProperties": { "bsonType": "string" }
+            },
+            "createdAt": {
+              "bsonType": "date",
+              "description": "Creation timestamp"
+            },
+            "updatedAt": {
+              "bsonType": "date",
+              "description": "Last update timestamp"
+            },
+            "createdBy": {
+              "bsonType": "string",
+              "description": "User ID who created the tenant"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "indexes": [
+        {
+          "key": { "slug": 1 },
+          "unique": true,
+          "name": "idx_slug_unique"
+        },
+        {
+          "key": { "status": 1 },
+          "name": "idx_status"
+        },
+        {
+          "key": { "createdAt": -1 },
+          "name": "idx_created_at_desc"
+        }
+      ]
+    },
+    "idempotencyKeys": {
+      "description": "Idempotency key storage for safe request retries",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "title": "IdempotencyKey",
+          "required": ["_id", "requestHash", "response", "createdAt", "expiresAt"],
+          "properties": {
+            "_id": {
+              "bsonType": "string",
+              "description": "Client-provided idempotency key"
+            },
+            "tenantId": {
+              "bsonType": ["string", "null"],
+              "description": "Created tenant ID (if successful)"
+            },
+            "requestHash": {
+              "bsonType": "string",
+              "description": "SHA-256 hash of request body"
+            },
+            "response": {
+              "bsonType": "object",
+              "description": "Cached response for replay"
+            },
+            "createdAt": {
+              "bsonType": "date",
+              "description": "Key creation timestamp"
+            },
+            "expiresAt": {
+              "bsonType": "date",
+              "description": "TTL expiration timestamp"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "indexes": [
+        {
+          "key": { "expiresAt": 1 },
+          "expireAfterSeconds": 0,
+          "name": "idx_ttl_expires"
+        },
+        {
+          "key": { "tenantId": 1 },
+          "sparse": true,
+          "name": "idx_tenant_id"
+        }
+      ]
+    }
+  },
+  "defaultConfiguration": {
+    "description": "Default configuration applied to new tenants",
+    "featureFlags": {
+      "aiRecommendations": true,
+      "advancedAnalytics": false,
+      "customBranding": false,
+      "ssoEnabled": false,
+      "apiAccess": true
+    },
+    "limits": {
+      "maxUsers": 50,
+      "maxOrganizations": 5,
+      "maxSkills": 500,
+      "maxLearningPaths": 100,
+      "storageQuotaMb": 1024,
+      "apiRateLimitPerMinute": 1000
+    },
+    "branding": {
+      "logoUrl": null,
+      "faviconUrl": null,
+      "primaryColor": "#1976D2",
+      "secondaryColor": "#424242",
+      "customCss": null
+    },
+    "integrations": {
+      "sso": null,
+      "lms": null
+    }
+  }
+}
