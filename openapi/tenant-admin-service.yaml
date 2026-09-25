@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: ASIWDP Tenant Admin Service
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Tenant, organization, and user administration edge APIs. Protected by
     OAuth2/JWT with tenant-scoped RBAC. Platform-scoped `platform_admin`
@@ -10,6 +10,7 @@ servers:
   - url: /api/v1
 tags:
   - name: Tenants
+  - name: Provisioning
   - name: Organizations
   - name: Users
   - name: Roles
@@ -23,6 +24,102 @@ paths:
       responses:
         "200":
           description: Service is healthy
+  /tenants:
+    post:
+      tags: [Provisioning]
+      operationId: createTenant
+      summary: Provision a new tenant
+      description: |
+        Creates a new tenant with default configuration. Only platform administrators
+        can create tenants. Supports idempotency via the `Idempotency-Key` header.
+      security:
+        - OAuth2Bearer: [tenants:admin]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Unique key for idempotent request. If provided, duplicate requests with
+            the same key and payload will return the original response.
+          schema:
+            type: string
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Tenant successfully provisioned
+          headers:
+            X-Tenant-Id:
+              description: UUID of the created tenant
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "400":
+          description: Invalid request body or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Tenant with this slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Idempotency key conflict (reused with different payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /tenants/{tenantId}:
+    get:
+      tags: [Tenants]
+      operationId: getTenant
+      summary: Get tenant by ID
+      description: |
+        Retrieves tenant details by ID. Platform admins can access any tenant;
+        other users can only access their own tenant.
+      security:
+        - OAuth2Bearer: [tenants:read]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /tenants/me:
     get:
       tags: [Tenants]
@@ -33,6 +130,10 @@ paths:
       responses:
         "200":
           description: Tenant profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -144,7 +245,7 @@ components:
           scopes:
             tenants:read: Read tenant
             tenants:write: Update tenant
-            tenants:admin: Administer tenants
+            tenants:admin: Administer tenants (create/delete)
             users:read: Read users
             users:write: Create/update users
             users:admin: Administer users
@@ -176,5 +277,160 @@ components:
           type: string
         message:
           type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    CreateTenantRequest:
+      type: object
+      required:
+        - name
+        - slug
+        - contactEmail
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Human-readable tenant name
+          example: "Acme Corporation"
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 100
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+          description: URL-safe unique identifier
+          example: "acme-corp"
+        contactEmail:
+          type: string
+          format: email
+          description: Primary contact email address
+          example: "admin@acme.com"
+        billingEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Billing contact email (defaults to contactEmail)
+        tier:
+          type: string
+          enum: [free, standard, enterprise]
+          default: standard
+          description: Subscription tier determining features and limits
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Custom metadata attributes
+
+    TenantResponse:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - tier
+        - contactEmail
+        - configuration
+        - createdAt
+        - updatedAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [provisioning, active, suspended, deactivated, failed]
+        tier:
+          type: string
+          enum: [free, standard, enterprise]
+        contactEmail:
+          type: string
+          format: email
+        billingEmail:
+          type: string
+          format: email
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        configuration:
+          $ref: "#/components/schemas/TenantConfiguration"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        provisionedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdBy:
+          type: string
+          format: uuid
+
+    TenantConfiguration:
+      type: object
+      properties:
+        features:
+          type: object
+          properties:
+            skillsFramework:
+              type: boolean
+            recommendations:
+              type: boolean
+            learningPaths:
+              type: boolean
+            analytics:
+              type: boolean
+        limits:
+          type: object
+          properties:
+            maxUsers:
+              type: integer
+              description: "-1 for unlimited"
+            maxOrganizations:
+              type: integer
+            apiRateLimit:
+              type: integer
+              description: Requests per minute
+        retention:
+          type: object
+          properties:
+            auditLogsDays:
+              type: integer
+            analyticsDays:
+              type: integer
+        privacy:
+          type: object
+          properties:
+            dataRegion:
+              type: string
+            gdprEnabled:
+              type: boolean
+        branding:
+          type: object
+          properties:
+            logoUrl:
+              type: string
+              nullable: true
+            primaryColor:
+              type: string
+        notifications:
+          type: object
+          properties:
+            emailEnabled:
+              type: boolean
+            webhookUrl:
+              type: string
+              nullable: true
+
 security:
   - OAuth2Bearer: []
