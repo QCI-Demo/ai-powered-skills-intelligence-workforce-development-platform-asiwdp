@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asiwdp-bias-evaluator"
+version = "0.1.0"
+description = "Model fairness and bias evaluation framework for ASIWDP AI services"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "ASIWDP Platform Team" }]
+dependencies = [
+    "mlflow>=2.9.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "psycopg2-binary>=2.9.9",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/QCI-Demo/ai-powered-skills-intelligence-workforce-development-platform-asiwdp"
+
+[project.scripts]
+bias-evaluator = "asiwdp_bias.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
