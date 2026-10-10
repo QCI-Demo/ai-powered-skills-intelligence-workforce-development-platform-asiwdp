@@ -54,6 +54,9 @@ permission_catalog:
   - usage:read
   - usage:write
   - usage:admin
+  - feedback:read
+  - feedback:write
+  - feedback:admin
 
 roles:
   platform_admin:
@@ -69,6 +72,7 @@ roles:
       - skills:admin
       - competencies:admin
       - recommendations:admin
+      - feedback:admin
       - learning_paths:admin
       - progress:admin
       - analytics:admin
@@ -159,6 +163,8 @@ roles:
       - competencies:read
       - recommendations:read
       - recommendations:generate
+      - feedback:read
+      - feedback:write
       - learning_paths:read
       - progress:read
       - progress:write
@@ -205,3 +211,7 @@ service_endpoint_defaults:
     read: [tenants:read, users:read, organizations:read]
     write: [tenants:write, users:write, organizations:write]
     admin: [tenants:admin, users:admin, organizations:admin, roles:admin]
+  feedback-service:
+    read: [feedback:read]
+    write: [feedback:write]
+    admin: [feedback:admin]
